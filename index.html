@@ -81,11 +81,12 @@
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
                 <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                     <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-pen-to-square text-brand-500"></i> Lançamento de Caixa
+                        <i class="fa-solid fa-pen-to-square text-brand-500"></i> <span id="form-title">Lançamento de Caixa</span>
                     </h2>
                     <span class="text-[10px] text-slate-400 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">Banco de Dados Cloud</span>
                 </div>
 
+                <input type="hidden" id="in-id" value="">
                 <input type="hidden" id="in-tipo" value="entrada">
 
                 <!-- Seletor Tipo -->
@@ -130,14 +131,19 @@
                 <!-- Upload de Comprovante -->
                 <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
                     <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <i class="fa-solid fa-paperclip text-brand-500"></i> Anexar Comprovante / PDF (Supabase Storage)
+                        <i class="fa-solid fa-paperclip text-brand-500"></i> Anexar Comprovante / PDF
                     </label>
                     <input type="file" id="in-file" accept="image/*,application/pdf" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-500/20 file:text-brand-500">
                 </div>
 
-                <button onclick="saveTransaction()" class="w-full bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 text-slate-950 font-black py-3 px-4 rounded-xl shadow-lg transition text-xs flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-cloud-arrow-up text-base"></i> Salvar no Supabase
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="saveTransaction()" class="flex-grow bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 text-slate-950 font-black py-3 px-4 rounded-xl shadow-lg transition text-xs flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-base"></i> <span id="btn-save-label">Salvar no Supabase</span>
+                    </button>
+                    <button onclick="resetForm()" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 rounded-xl text-xs">
+                        Cancelar
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -169,7 +175,6 @@
     </main>
 
     <script>
-        // CREDENCIAIS CONECTADAS DO SEU SUPABASE
         const SUPABASE_URL = "https://rnswlektqerdhojlithx.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc3dsZWt0cWVyZGhvamxpdGh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwODAxNTksImV4cCI6MjEwNDY1NjE1OX0.pDmnEQyu1HrM4g8jTn864bQG6k31vqHAPXogn-DOr5Q";
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -180,6 +185,7 @@
         };
 
         let transactions = [];
+        let isReadOnly = false;
 
         function formatBRL(val) {
             return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
@@ -196,6 +202,9 @@
         }
 
         async function saveTransaction() {
+            if (isReadOnly) return;
+
+            const id = document.getElementById('in-id').value;
             const tipo = document.getElementById('in-tipo').value;
             const data = document.getElementById('in-data').value;
             const valor = parseFloat(document.getElementById('in-valor').value);
@@ -222,18 +231,55 @@
                 }
             }
 
-            const { error } = await _supabase.from('transactions').insert([{
-                tipo, data, valor, descricao, categoria, ref_code, comprovante_url
-            }]);
+            if (id) {
+                // Atualizar Existente
+                const updatePayload = { tipo, data, valor, descricao, categoria, ref_code };
+                if (comprovante_url) updatePayload.comprovante_url = comprovante_url;
 
-            if (error) {
-                alert("Erro ao salvar: " + error.message);
+                const { error } = await _supabase.from('transactions').update(updatePayload).eq('id', id);
+                if (error) alert("Erro ao atualizar: " + error.message);
+                else alert("Lançamento atualizado!");
             } else {
-                alert("Lançamento salvo com sucesso no Supabase!");
-                resetForm();
-                switchTab('extrato');
-                loadFromSupabase();
+                // Criar Novo
+                const { error } = await _supabase.from('transactions').insert([{
+                    tipo, data, valor, descricao, categoria, ref_code, comprovante_url
+                }]);
+                if (error) alert("Erro ao salvar: " + error.message);
+                else alert("Lançamento salvo com sucesso!");
             }
+
+            resetForm();
+            switchTab('extrato');
+            loadFromSupabase();
+        }
+
+        async function deleteTransaction(id) {
+            if (isReadOnly) return;
+            if (confirm("Deseja realmente excluir esta movimentação?")) {
+                const { error } = await _supabase.from('transactions').delete().eq('id', id);
+                if (error) alert("Erro ao excluir: " + error.message);
+                else {
+                    loadFromSupabase();
+                }
+            }
+        }
+
+        function editTransaction(id) {
+            if (isReadOnly) return;
+            const t = transactions.find(x => x.id === id);
+            if (!t) return;
+
+            document.getElementById('in-id').value = t.id;
+            document.getElementById('in-data').value = t.data;
+            document.getElementById('in-valor').value = t.valor;
+            document.getElementById('in-descricao').value = t.descricao;
+            document.getElementById('in-ref-code').value = t.ref_code || "";
+            setMovementType(t.tipo);
+            document.getElementById('in-categoria').value = t.categoria;
+            document.getElementById('form-title').innerText = "Editar Lançamento";
+            document.getElementById('btn-save-label').innerText = "Atualizar Lançamento";
+
+            switchTab('lancar');
         }
 
         function renderApp() {
@@ -262,7 +308,13 @@
                         </div>
                         <div class="text-right font-black ${t.tipo === 'entrada' ? 'text-emerald-400' : 'text-rose-400'}">
                             ${t.tipo === 'entrada' ? '+' : '-'} ${formatBRL(t.valor)}
-                            ${t.comprovante_url ? `<div class="mt-1"><a href="${t.comprovante_url}" target="_blank" class="text-[10px] text-brand-500 underline"><i class="fa-solid fa-paperclip"></i> Anexo</a></div>` : ''}
+                            <div class="mt-1 flex items-center justify-end gap-2">
+                                ${t.comprovante_url ? `<a href="${t.comprovante_url}" target="_blank" class="text-[10px] text-brand-500 underline"><i class="fa-solid fa-paperclip"></i> Anexo</a>` : ''}
+                                ${isReadOnly ? '' : `
+                                    <button onclick="editTransaction('${t.id}')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button onclick="deleteTransaction('${t.id}')" class="text-rose-500 hover:text-rose-400"><i class="fa-solid fa-trash"></i></button>
+                                `}
+                            </div>
                         </div>
                     `;
                     container.appendChild(row);
@@ -317,11 +369,14 @@
         }
 
         function resetForm() {
+            document.getElementById('in-id').value = "";
             document.getElementById('in-data').value = new Date().toISOString().split('T')[0];
             document.getElementById('in-valor').value = "";
             document.getElementById('in-descricao').value = "";
             document.getElementById('in-ref-code').value = "";
             document.getElementById('in-file').value = "";
+            document.getElementById('form-title').innerText = "Lançamento de Caixa";
+            document.getElementById('btn-save-label').innerText = "Salvar no Supabase";
             setMovementType('entrada');
         }
 
@@ -330,9 +385,9 @@
             updateCategoryOptions('entrada');
             loadFromSupabase();
 
-            // Lógica do Somente Leitura via URL: ex: app.vercel.app?view=1
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('view') === '1') {
+                isReadOnly = true;
                 document.getElementById('desk-tab-lancar').classList.add('hidden');
                 document.getElementById('mob-tab-lancar').classList.add('hidden');
                 document.getElementById('status-text').innerText = 'Modo Somente Leitura';
