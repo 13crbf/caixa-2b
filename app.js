@@ -14,8 +14,14 @@ function formatBRL(val) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 }
 
+// Carrega os dados ordenados por data (mais recentes primeiro) e por data de criação
 async function loadFromSupabase() {
-    const { data, error } = await _supabase.from('transactions').select('*').order('data', { ascending: false });
+    const { data, error } = await _supabase
+        .from('transactions')
+        .select('*')
+        .order('data', { ascending: false })
+        .order('created_at', { ascending: false });
+
     if (error) {
         alert("Erro ao carregar dados: " + error.message);
         return;
@@ -121,6 +127,10 @@ function renderApp() {
             if (t.tipo === 'entrada') totalEntradas += Number(t.valor);
             else totalSaidas += Number(t.valor);
 
+            // Formatação de data em padrão brasileiro (DD/MM/AAAA)
+            const dateParts = t.data.split('-');
+            const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : t.data;
+
             const row = document.createElement('div');
             row.className = "p-3 flex items-center justify-between hover:bg-slate-800/30 transition text-xs";
             
@@ -142,7 +152,7 @@ function renderApp() {
                         <span>${t.descricao}</span>
                     </div>
                     <div class="text-[10px] text-slate-400 font-mono">
-                        <span>${t.data}</span> • <span>${t.categoria}</span> ${t.ref_code ? `• <span class="text-amber-400">${t.ref_code}</span>` : ''}
+                        <span>${formattedDate}</span> • <span>${t.categoria}</span> ${t.ref_code ? `• <span class="text-amber-400">${t.ref_code}</span>` : ''}
                     </div>
                 </div>
                 <div class="text-right space-y-1">
@@ -159,6 +169,7 @@ function renderApp() {
         });
     }
 
+    // Atualiza os quadros de totalizadores posicionados no rodapé
     document.getElementById('card-total-entradas').innerText = formatBRL(totalEntradas);
     document.getElementById('card-total-saidas').innerText = formatBRL(totalSaidas);
     const saldo = totalEntradas - totalSaidas;
@@ -172,13 +183,13 @@ function switchTab(tab) {
     if (tab === 'lancar') {
         if (isReadOnly) return;
         document.getElementById('view-lancar').classList.remove('hidden');
-        document.getElementById('desk-tab-lancar').className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active-tab";
-        document.getElementById('desk-tab-extrato').className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
+        document.getElementById('desk-tab-lancar').className = "px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active-tab";
+        document.getElementById('desk-tab-extrato').className = "px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
     } else {
         document.getElementById('view-extrato').classList.remove('hidden');
-        document.getElementById('desk-tab-extrato').className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active-tab";
+        document.getElementById('desk-tab-extrato').className = "px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active-tab";
         if (document.getElementById('desk-tab-lancar')) {
-            document.getElementById('desk-tab-lancar').className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
+            document.getElementById('desk-tab-lancar').className = "px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
         }
         loadFromSupabase();
     }
