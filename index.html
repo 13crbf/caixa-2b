@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TwoB - Fluxo Caixa</title>
-    <!-- Tailwind CSS & FontAwesome -->
+    <title>2B Imobiliária - App Central</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js para Estatísticas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
         tailwind.config = {
@@ -19,10 +21,7 @@
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
                         brand: {
-                            50: '#fbf8ed',
-                            500: '#d4af37', // Dourado 2B
-                            600: '#b89028',
-                            900: '#1a150a',
+                            50: '#fbf8ed', 100: '#f5edd1', 500: '#d4af37', 600: '#b89028', 900: '#1a150a'
                         }
                     }
                 }
@@ -31,180 +30,301 @@
     </script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
-        .active-tab { background-color: #d4af37 !important; color: #020617 !important; font-weight: 800 !important; }
-        .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        @media print {
+            body * { visibility: hidden !important; }
+            #printableReceiptArea, #printableReceiptArea * { visibility: visible !important; }
+            #printableReceiptArea { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; background: white !important; color: black !important; }
+            .no-print { display: none !important; }
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 pb-20 md:pb-6">
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 pb-20 md:pb-0 custom-scrollbar">
 
-    <!-- Cabeçalho -->
-    <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
-        <div class="max-w-5xl mx-auto px-4 h-20 flex items-center justify-between gap-3">
+    <!-- Cabeçalho Principal -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 no-print">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <img src="https://i.ibb.co/WWKdFNmr/Whats-App-Image-2026-05-14-at-11-21-25.jpg" alt="Logo TwoB" class="h-12 w-auto object-contain rounded bg-black p-1 border border-brand-500/40 shadow-md">
+                <div class="bg-brand-500/10 p-2 rounded-xl border border-brand-500/30">
+                    <i class="fa-solid fa-building-circle-check text-brand-500 text-lg"></i>
+                </div>
                 <div>
-                    <h1 class="text-sm sm:text-base font-black text-white tracking-tight flex items-center gap-2">
-                        TwoB - Fluxo Caixa
-                    </h1>
-                    <span id="role-badge" class="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-                        <i class="fa-solid fa-database text-[9px]"></i> <span id="status-text">Conectado ao Supabase</span>
-                    </span>
+                    <h1 class="text-sm md:text-base font-bold text-white leading-none">2B NEGÓCIOS IMOBILIÁRIOS</h1>
+                    <span class="text-[10px] text-slate-400 font-medium">CRECI-J 053851-J</span>
                 </div>
             </div>
 
-            <!-- Navegação Desktop -->
-            <nav class="hidden md:flex items-center space-x-1 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
-                <button onclick="switchTab('lancar')" id="desk-tab-lancar" class="px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active-tab">
-                    <i class="fa-solid fa-circle-plus"></i> + Lançar
-                </button>
-                <button onclick="switchTab('extrato')" id="desk-tab-extrato" class="px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-list-ul"></i> Extrato / Caixa
-                </button>
-            </nav>
+            <div class="flex items-center gap-2">
+                <span id="badge-user-mode" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-brand-500/10 text-brand-500 border border-brand-500/30">
+                    <i class="fa-solid fa-user-shield mr-1"></i> Modo Administrador
+                </span>
+            </div>
         </div>
     </header>
 
-    <!-- Menu Mobile (Rodapé) -->
-    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 z-50 flex justify-around py-2 px-3 backdrop-blur-lg">
-        <button onclick="switchTab('lancar')" id="mob-tab-lancar" class="flex flex-col items-center gap-1 text-brand-500 font-extrabold text-[10px]">
-            <i class="fa-solid fa-circle-plus text-lg"></i><span>+ Lançar</span>
-        </button>
-        <button onclick="switchTab('extrato')" id="mob-tab-extrato" class="flex flex-col items-center gap-1 text-slate-400 font-medium text-[10px]">
-            <i class="fa-solid fa-receipt text-lg"></i><span>Extrato</span>
-        </button>
-    </div>
-
     <!-- Conteúdo Principal -->
-    <main class="flex-grow max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 space-y-4">
+    <main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4">
 
-        <!-- ABA 1: LANÇAR MOVIMENTAÇÃO -->
-        <div id="view-lancar" class="space-y-4">
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-pen-to-square text-brand-500"></i> <span id="form-title">Lançamento de Caixa</span>
-                    </h2>
-                    <span class="text-[10px] text-slate-400 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">Banco de Dados Cloud</span>
+        <!-- ================= ABA 1: ESTATÍSTICAS ================= -->
+        <div id="view-stats" class="space-y-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase block">Vendas / Mês</span>
+                    <div class="text-lg md:text-2xl font-black text-white" id="stat-count-month">0</div>
+                    <span class="text-[9px] text-emerald-400" id="stat-count-sub">Propostas finalizadas</span>
                 </div>
-
-                <input type="hidden" id="in-id" value="">
-                <input type="hidden" id="in-tipo" value="entrada">
-
-                <!-- Seletor Tipo -->
-                <div class="grid grid-cols-2 gap-2">
-                    <button type="button" onclick="setMovementType('entrada')" id="btn-type-entrada" class="py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                        <i class="fa-solid fa-arrow-down"></i> Entrada (+)
-                    </button>
-                    <button type="button" onclick="setMovementType('saida')" id="btn-type-saida" class="py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 bg-slate-950 text-slate-400 border border-slate-800">
-                        <i class="fa-solid fa-arrow-up"></i> Saída (-)
-                    </button>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase block">VGV Acumulado</span>
+                    <div class="text-lg md:text-2xl font-black text-white" id="stat-vgv-total">R$ 0,00</div>
+                    <span class="text-[9px] text-slate-400">Volume geral</span>
                 </div>
-
-                <!-- Campos Data e Valor -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Data da Movimentação</label>
-                        <input type="date" id="in-data" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Valor (R$)</label>
-                        <input type="number" id="in-valor" step="0.01" placeholder="0,00" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-black text-white focus:outline-none focus:border-brand-500">
-                    </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase block">Comissão Bruta</span>
+                    <div class="text-lg md:text-2xl font-black text-brand-500" id="stat-comissao-bruta">R$ 0,00</div>
+                    <span class="text-[9px] text-brand-400">Recebido da Cury</span>
                 </div>
-
-                <!-- Descrição e Categoria -->
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-400 mb-1">Descrição / Histórico</label>
-                    <input type="text" id="in-descricao" placeholder="Ex: Comissão Cury Bosque da Barra" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase block">Reserva DAS (Imposto)</span>
+                    <div class="text-lg md:text-2xl font-black text-amber-400" id="stat-reserva-das">R$ 0,00</div>
+                    <span class="text-[9px] text-amber-400/80">Caixa de Impostos</span>
                 </div>
+            </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Categoria</label>
-                        <select id="in-categoria" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500 font-medium"></select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Cód. Proposta (PV) ou NF-e</label>
-                        <input type="text" id="in-ref-code" placeholder="Ex: PV-395473 ou NF-000102" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-amber-400 font-mono focus:outline-none focus:border-brand-500">
-                    </div>
+            <!-- Gráficos das Estatísticas -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                    <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-brand-500"></i> Evolução Mensal do VGV & Faturamento
+                    </h3>
+                    <div class="h-56 relative"><canvas id="chartEvolucaoVendas"></canvas></div>
                 </div>
-
-                <!-- Upload de Comprovante -->
-                <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
-                    <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <i class="fa-solid fa-paperclip text-brand-500"></i> Anexar Comprovante / PDF
-                    </label>
-                    <input type="file" id="in-file" accept="image/*,application/pdf" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-500/20 file:text-brand-500">
-                </div>
-
-                <div class="flex gap-2">
-                    <button onclick="saveTransaction()" class="flex-grow bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 text-slate-950 font-black py-3 px-4 rounded-xl shadow-lg transition text-xs flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-cloud-arrow-up text-base"></i> <span id="btn-save-label">Salvar no Supabase</span>
-                    </button>
-                    <button onclick="resetForm()" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 rounded-xl text-xs">
-                        Cancelar
-                    </button>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+                    <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-user-ninja text-brand-500"></i> Vendas por Corretor (Quantidade)
+                    </h3>
+                    <div class="h-56 relative"><canvas id="chartVendasCorretores"></canvas></div>
                 </div>
             </div>
         </div>
 
-        <!-- ABA 2: EXTRATO (COM TOTAIS NO TOPO E FILTROS COMPLETOS) -->
+        <!-- ================= ABA 2: EXTRATO DE CAIXA ================= -->
         <div id="view-extrato" class="space-y-4 hidden">
-
-            <!-- Quadros de Totais e Saldo Líquido no Topo -->
-            <div class="grid grid-cols-3 gap-2 sm:gap-4">
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 text-center sm:text-left shadow-lg">
-                    <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-0.5">Entradas</span>
-                    <div class="text-sm sm:text-xl font-black text-emerald-400" id="card-total-entradas">R$ 0,00</div>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 text-center sm:text-left shadow-lg">
-                    <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-0.5">Saídas</span>
-                    <div class="text-sm sm:text-xl font-black text-rose-400" id="card-total-saidas">R$ 0,00</div>
-                </div>
-                <div class="bg-slate-900 border border-brand-500/40 rounded-xl p-3 sm:p-4 text-center sm:text-left shadow-lg bg-gradient-to-br from-slate-900 to-brand-950/30">
-                    <span class="text-[10px] font-semibold text-brand-500 uppercase block mb-0.5">Saldo Líquido</span>
-                    <div class="text-sm sm:text-xl font-black text-white" id="card-saldo-liquido">R$ 0,00</div>
-                </div>
-            </div>
-
-            <!-- Painel de Busca e Filtros de Período -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3 shadow-lg">
-                <!-- Botões Rápidos de Período -->
-                <div class="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1">
-                    <button onclick="setFilterPeriod('hoje')" id="btn-period-hoje" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 whitespace-nowrap">Dia (Hoje)</button>
-                    <button onclick="setFilterPeriod('mes_atual')" id="btn-period-mes_atual" class="px-3 py-1 rounded-lg text-xs font-semibold bg-brand-500 text-slate-950 whitespace-nowrap shadow">Este Mês</button>
-                    <button onclick="setFilterPeriod('mes_anterior')" id="btn-period-mes_anterior" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 whitespace-nowrap">Mês Anterior</button>
-                    <button onclick="setFilterPeriod('ano')" id="btn-period-ano" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 whitespace-nowrap">Ano 2026</button>
-                    <button onclick="setFilterPeriod('todos')" id="btn-period-todos" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 whitespace-nowrap">Todos</button>
-                </div>
-
-                <!-- Filtro por Intervalo de Datas e Campo de Busca -->
-                <div class="flex flex-col sm:flex-row items-center gap-2">
-                    <div class="flex items-center gap-1.5 w-full sm:w-auto text-xs">
-                        <input type="date" id="filter-date-start" onchange="renderApp()" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white w-full">
-                        <span class="text-slate-500 font-bold">até</span>
-                        <input type="date" id="filter-date-end" onchange="renderApp()" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white w-full">
-                    </div>
-                    <div class="relative w-full">
-                        <input type="text" id="search-input" placeholder="Buscar por descrição, PV, NF ou categoria..." oninput="renderApp()" 
-                               class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500">
-                        <i class="fa-solid fa-search absolute left-2.5 top-2.5 text-slate-500 text-[11px]"></i>
-                    </div>
+            <!-- Filtros por Dropdown -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+                <input type="text" id="extrato-search" oninput="renderExtrato()" placeholder="Buscar por descrição, proposta, NF-e ou corretor..."
+                       class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+                <div class="grid grid-cols-3 gap-2">
+                    <select id="extrato-filter-dia" onchange="renderExtrato()" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white">
+                        <option value="todos">Todos os Dias</option>
+                    </select>
+                    <select id="extrato-filter-mes" onchange="renderExtrato()" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white">
+                        <option value="todos">Todos os Meses</option>
+                    </select>
+                    <select id="extrato-filter-ano" onchange="renderExtrato()" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white">
+                        <option value="2026">2026</option>
+                        <option value="todos">Todos os Anos</option>
+                    </select>
                 </div>
             </div>
 
-            <!-- Lista Dinâmica Estilo App Bancário -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-                <div class="p-3 border-b border-slate-800 text-xs font-bold text-brand-500 uppercase flex items-center justify-between">
-                    <span><i class="fa-solid fa-list-ul"></i> Extrato de Transações</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Estilo Bancário</span>
+            <!-- Totais de Saldos -->
+            <div class="grid grid-cols-3 gap-2">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-center">
+                    <span class="text-[9px] font-semibold text-slate-400 block uppercase">Entradas</span>
+                    <div class="text-xs md:text-base font-black text-emerald-400" id="extrato-total-entradas">R$ 0,00</div>
                 </div>
-                <div class="divide-y divide-slate-800/60" id="tb-caixa-body"></div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-center">
+                    <span class="text-[9px] font-semibold text-slate-400 block uppercase">Saídas</span>
+                    <div class="text-xs md:text-base font-black text-rose-400" id="extrato-total-saidas">R$ 0,00</div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-center">
+                    <span class="text-[9px] font-semibold text-brand-500 block uppercase">Saldo Caixa</span>
+                    <div class="text-xs md:text-base font-black text-white" id="extrato-saldo-liquido">R$ 0,00</div>
+                </div>
+            </div>
+
+            <!-- Lista Estilo Bancário -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+                <div class="divide-y divide-slate-800/80" id="extrato-list-container">
+                    <!-- Linhas do extrato geradas via JS -->
+                </div>
             </div>
         </div>
+
+        <!-- ================= ABA 3: ESTEIRA OPERACIONAL ================= -->
+        <div id="view-esteira" class="space-y-4 hidden">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex justify-between items-center">
+                <div>
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-file-arrow-up text-brand-500"></i> Passo 1: Leitura de Nota Fiscal (NFS-e)
+                    </h2>
+                    <p class="text-[11px] text-slate-400">Importe o PDF da Nota emitida na Prefeitura de SP para cadastrar a venda automaticamente.</p>
+                </div>
+                <label class="bg-brand-500 hover:bg-brand-600 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs cursor-pointer flex items-center gap-2">
+                    <i class="fa-solid fa-upload"></i> Importar PDF
+                    <input type="file" id="input-pdf-nfe" accept=".pdf" class="hidden" onchange="handleNFeUpload(event)">
+                </label>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                <h3 class="text-xs font-bold text-brand-500 uppercase tracking-wider">Dados Extraídos da Venda</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                    <div>
+                        <label class="block text-[10px] text-slate-400">Proposta / PV</label>
+                        <input type="text" id="form-pv" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400">Empreendimento</label>
+                        <input type="text" id="form-emp" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400">Torre / Unidade</label>
+                        <input type="text" id="form-unidade" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400">NFS-e Nº</label>
+                        <input type="text" id="form-nfe" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs font-mono text-amber-400">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 pt-2">
+                    <div>
+                        <label class="block text-[10px] text-slate-400">Comissão Bruta (NFS-e)</label>
+                        <input type="number" id="form-bruto" oninput="calculateForm()" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400">Taxa Intermediação (%)</label>
+                        <input type="number" id="form-pct-bruta" value="3.65" step="0.05" oninput="calculateForm()" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400">VGV Calculado (R$)</label>
+                        <input type="number" id="form-vgv" oninput="calculateForm()" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-brand-500 font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400">Corretor Parceiro</label>
+                        <select id="form-corretor-id" class="w-full bg-slate-950 border border-slate-800 rounded p-1.5 text-xs text-white"></select>
+                    </div>
+                </div>
+
+                <button onclick="saveEsteiraVenda()" class="w-full bg-brand-500 text-slate-950 font-black py-2.5 rounded-xl text-xs hover:bg-brand-600">
+                    Salvar e Avançar para Minuta Gov.br
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= ABA 4: CORRETORES ================= -->
+        <div id="view-corretores" class="space-y-4 hidden">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex justify-between items-center">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-users text-brand-500"></i> Cadastro de Corretores Parceiros
+                </h2>
+                <button onclick="openCorretorModal()" class="bg-brand-500 text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs">
+                    + Novo Corretor
+                </button>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                        <tr>
+                            <th class="p-3">Nome</th>
+                            <th class="p-3">CRECI</th>
+                            <th class="p-3">Telefone / WhatsApp</th>
+                            <th class="p-3">Chave Pix</th>
+                            <th class="p-3 text-center admin-only">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tb-corretores-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ================= ABA 5: RECIBO A4 ================= -->
+        <div id="view-recibo" class="space-y-4 hidden">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center no-print">
+                <span class="text-xs text-slate-400">Visualização de Minuta para Assinatura Gov.br</span>
+                <button onclick="window.print()" class="bg-brand-500 text-slate-950 font-black px-4 py-2 rounded-xl text-xs">
+                    <i class="fa-solid fa-print mr-1"></i> Imprimir / PDF
+                </button>
+            </div>
+            <div id="printableReceiptArea" class="bg-white text-slate-900 rounded-xl p-8 max-w-3xl mx-auto border border-slate-200">
+                <div class="flex justify-between items-start border-b-2 border-slate-900 pb-3 mb-4">
+                    <div>
+                        <h1 class="text-sm font-black">2B NEGÓCIOS IMOBILIÁRIOS LTDA</h1>
+                        <p class="text-[10px] text-slate-700 font-bold">TWOB IMOBILIARIA | CRECI-J: 053851-J | CNPJ: 66.641.474/0001-20</p>
+                    </div>
+                    <span class="text-xs font-black bg-slate-100 px-2 py-1 rounded border">RECIBO DE REPASSE</span>
+                </div>
+                <div class="text-center my-4">
+                    <h2 class="text-xs font-black uppercase border-y border-slate-300 py-1">RECIBO DE REPASSE DE HONORÁRIOS IMOBILIÁRIOS (LEI Nº 13.097/2015)</h2>
+                </div>
+                <div class="bg-slate-50 border p-3 rounded-lg mb-4 flex justify-between">
+                    <div><span class="text-[9px] text-slate-500 block">VALOR LÍQUIDO</span><span class="text-lg font-black" id="rcp-val">R$ 0,00</span></div>
+                    <div class="text-right"><span class="text-[9px] text-slate-500 block">PROPOSTA</span><span class="text-xs font-bold" id="rcp-pv">--</span></div>
+                </div>
+                <p class="text-xs text-justify leading-relaxed mb-4">Recebi da empresa 2B NEGÓCIOS IMOBILIÁRIOS LTDA a importância referente ao repasse de honorários de intermediação do imóvel abaixo mapeado em total autonomia técnica.</p>
+                <div class="bg-slate-50 border p-3 rounded-lg text-xs space-y-1 mb-6">
+                    <div><strong>Empreendimento:</strong> <span id="rcp-emp">--</span></div>
+                    <div><strong>Unidade/Torre:</strong> <span id="rcp-unit">--</span></div>
+                    <div><strong>Beneficiário:</strong> <span id="rcp-corretor">--</span></div>
+                </div>
+                <div class="mt-12 pt-4 border-t border-slate-400 max-w-xs mx-auto text-center text-xs">
+                    <div class="font-bold uppercase" id="rcp-sign-corretor">CORRETOR ASSOCIADO</div>
+                    <p class="text-[10px] text-slate-500">Assinatura Digital via Gov.br</p>
+                </div>
+            </div>
+        </div>
+
     </main>
 
+    <!-- Modal Ver Arquivos Anexados -->
+    <div id="modal-files" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-4 space-y-3">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-folder-open text-brand-500"></i> Arquivos Vinculados à Transação
+                </h3>
+                <button onclick="closeFilesModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="files-container" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar"></div>
+        </div>
+    </div>
+
+    <!-- Modal Novo/Editar Corretor -->
+    <div id="modal-corretor" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-4 space-y-3">
+            <h3 class="text-xs font-bold text-white">Cadastrar Corretor Parceiro</h3>
+            <input type="hidden" id="corretor-form-id">
+            <input type="text" id="corretor-form-nome" placeholder="Nome Completo" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+            <input type="text" id="corretor-form-cpf" placeholder="CPF" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+            <input type="text" id="corretor-form-creci" placeholder="CRECI" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+            <input type="text" id="corretor-form-tel" placeholder="Telefone / WhatsApp" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+            <input type="text" id="corretor-form-pix" placeholder="Chave Pix" class="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeCorretorModal()" class="px-3 py-1.5 rounded text-xs text-slate-400">Cancelar</button>
+                <button onclick="saveCorretor()" class="bg-brand-500 text-slate-950 font-bold px-4 py-1.5 rounded text-xs">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de Navegação Inferior (Mobile Fixa) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 z-50 flex justify-around p-2 no-print">
+        <button onclick="switchTab('stats')" id="mob-tab-stats" class="flex flex-col items-center text-brand-500 font-bold">
+            <i class="fa-solid fa-chart-pie text-base"></i><span class="text-[10px]">Estatísticas</span>
+        </button>
+        <button onclick="switchTab('extrato')" id="mob-tab-extrato" class="flex flex-col items-center text-slate-400">
+            <i class="fa-solid fa-receipt text-base"></i><span class="text-[10px]">Extrato</span>
+        </button>
+        <button onclick="switchTab('esteira')" id="mob-tab-esteira" class="flex flex-col items-center text-slate-400 admin-only">
+            <i class="fa-solid fa-list-check text-base"></i><span class="text-[10px]">Esteira</span>
+        </button>
+        <button onclick="switchTab('corretores')" id="mob-tab-corretores" class="flex flex-col items-center text-slate-400">
+            <i class="fa-solid fa-users text-base"></i><span class="text-[10px]">Corretores</span>
+        </button>
+    </nav>
+
+    <!-- Script de Aplicação JS -->
     <script src="app.js"></script>
 </body>
 </html>
