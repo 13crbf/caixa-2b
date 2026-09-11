@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TwoB - Fluxo de Caixa</title>
+    <title>TwoB - Fluxo Caixa</title>
     <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -32,6 +32,8 @@
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
         .active-tab { background-color: #d4af37 !important; color: #020617 !important; font-weight: 800 !important; }
+        .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 pb-20 md:pb-6">
@@ -147,26 +149,17 @@
             </div>
         </div>
 
-        <!-- ABA 2: EXTRATO (LISTA NO TOPO, LINHA DE SALDOS NO RODAPÉ) -->
-        <div id="view-extrato" class="space-y-4 hidden flex flex-col">
-            
-            <!-- Tabela de Movimentações (Último Lançamento em Primeiro) -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-                <div class="p-3 border-b border-slate-800 text-xs font-bold text-brand-500 uppercase flex items-center justify-between">
-                    <span><i class="fa-solid fa-list-ul"></i> Movimentações Conciliadas</span>
-                    <span class="text-[10px] text-slate-400 font-normal">Mais recentes primeiro</span>
-                </div>
-                <div class="divide-y divide-slate-800/60" id="tb-caixa-body"></div>
-            </div>
+        <!-- ABA 2: EXTRATO (COM TOTAIS NO TOPO E FILTROS COMPLETOS) -->
+        <div id="view-extrato" class="space-y-4 hidden">
 
-            <!-- Linha de Saldo e Totais (Posicionada Abaixo do Extrato) -->
-            <div class="grid grid-cols-3 gap-2 sm:gap-4 pt-2">
+            <!-- Quadros de Totais e Saldo Líquido no Topo -->
+            <div class="grid grid-cols-3 gap-2 sm:gap-4">
                 <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 text-center sm:text-left shadow-lg">
-                    <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-0.5">Total Entradas</span>
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-0.5">Entradas</span>
                     <div class="text-sm sm:text-xl font-black text-emerald-400" id="card-total-entradas">R$ 0,00</div>
                 </div>
                 <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 text-center sm:text-left shadow-lg">
-                    <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-0.5">Total Saídas</span>
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-0.5">Saídas</span>
                     <div class="text-sm sm:text-xl font-black text-rose-400" id="card-total-saidas">R$ 0,00</div>
                 </div>
                 <div class="bg-slate-900 border border-brand-500/40 rounded-xl p-3 sm:p-4 text-center sm:text-left shadow-lg bg-gradient-to-br from-slate-900 to-brand-950/30">
@@ -175,6 +168,40 @@
                 </div>
             </div>
 
+            <!-- Painel de Busca e Filtros de Período -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3 shadow-lg">
+                <!-- Botões Rápidos de Período -->
+                <div class="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1">
+                    <button onclick="setFilterPeriod('hoje')" id="btn-period-hoje" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 whitespace-nowrap">Dia (Hoje)</button>
+                    <button onclick="setFilterPeriod('mes_atual')" id="btn-period-mes_atual" class="px-3 py-1 rounded-lg text-xs font-semibold bg-brand-500 text-slate-950 whitespace-nowrap shadow">Este Mês</button>
+                    <button onclick="setFilterPeriod('mes_anterior')" id="btn-period-mes_anterior" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 whitespace-nowrap">Mês Anterior</button>
+                    <button onclick="setFilterPeriod('ano')" id="btn-period-ano" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 whitespace-nowrap">Ano 2026</button>
+                    <button onclick="setFilterPeriod('todos')" id="btn-period-todos" class="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 whitespace-nowrap">Todos</button>
+                </div>
+
+                <!-- Filtro por Intervalo de Datas e Campo de Busca -->
+                <div class="flex flex-col sm:flex-row items-center gap-2">
+                    <div class="flex items-center gap-1.5 w-full sm:w-auto text-xs">
+                        <input type="date" id="filter-date-start" onchange="renderApp()" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white w-full">
+                        <span class="text-slate-500 font-bold">até</span>
+                        <input type="date" id="filter-date-end" onchange="renderApp()" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white w-full">
+                    </div>
+                    <div class="relative w-full">
+                        <input type="text" id="search-input" placeholder="Buscar por descrição, PV, NF ou categoria..." oninput="renderApp()" 
+                               class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500">
+                        <i class="fa-solid fa-search absolute left-2.5 top-2.5 text-slate-500 text-[11px]"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista Dinâmica Estilo App Bancário -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div class="p-3 border-b border-slate-800 text-xs font-bold text-brand-500 uppercase flex items-center justify-between">
+                    <span><i class="fa-solid fa-list-ul"></i> Extrato de Transações</span>
+                    <span class="text-[10px] text-slate-400 font-normal">Estilo Bancário</span>
+                </div>
+                <div class="divide-y divide-slate-800/60" id="tb-caixa-body"></div>
+            </div>
         </div>
     </main>
 
