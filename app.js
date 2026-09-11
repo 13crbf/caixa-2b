@@ -1,4 +1,3 @@
-// Credenciais de Conexão com o Supabase
 const SUPABASE_URL = "https://rnswlektqerdhojlithx.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc3dsZWt0cWVyZGhvamxpdGh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwODAxNTksImV4cCI6MjEwNDY1NjE1OX0.pDmnEQyu1HrM4g8jTn864bQG6k31vqHAPXogn-DOr5Q";
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -47,18 +46,21 @@ async function saveTransaction() {
         const file = fileInput.files[0];
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
-        const { data: storageData, error: storageError } = await _supabase.storage.from('comprovantes').upload(fileName, file);
+        
+        const { data: storageData, error: storageError } = await _supabase.storage
+            .from('comprovantes')
+            .upload(fileName, file, { cacheControl: '3600', upsert: true });
 
         if (!storageError) {
             const { data: urlData } = _supabase.storage.from('comprovantes').getPublicUrl(fileName);
             comprovante_url = urlData.publicUrl;
         } else {
-            console.error("Erro no upload do anexo:", storageError);
+            console.error("Erro ao subir o arquivo:", storageError);
+            alert("Erro ao enviar anexo: " + storageError.message);
         }
     }
 
     if (id) {
-        // Atualizar Lançamento
         const updatePayload = { tipo, data, valor, descricao, categoria, ref_code };
         if (comprovante_url) updatePayload.comprovante_url = comprovante_url;
 
@@ -66,7 +68,6 @@ async function saveTransaction() {
         if (error) alert("Erro ao atualizar: " + error.message);
         else alert("Lançamento atualizado!");
     } else {
-        // Novo Lançamento
         const { error } = await _supabase.from('transactions').insert([{
             tipo, data, valor, descricao, categoria, ref_code, comprovante_url
         }]);
@@ -123,14 +124,12 @@ function renderApp() {
             const row = document.createElement('div');
             row.className = "p-3 flex items-center justify-between hover:bg-slate-800/30 transition text-xs";
             
-            // Ícone visível e funcional para anexo
             const anexoBtnHtml = t.comprovante_url 
                 ? `<a href="${t.comprovante_url}" target="_blank" class="inline-flex items-center gap-1 bg-brand-500/10 text-brand-500 border border-brand-500/30 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-brand-500/20 transition">
                     <i class="fa-solid fa-paperclip text-brand-500"></i> Ver Anexo
                    </a>` 
                 : '';
 
-            // Oculta Editar e Excluir totalmente se for Somente Leitura
             const acoesEdicaoHtml = isReadOnly ? '' : `
                 <button onclick="editTransaction('${t.id}')" class="text-slate-400 hover:text-white transition p-1" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
                 <button onclick="deleteTransaction('${t.id}')" class="text-rose-500 hover:text-rose-400 transition p-1" title="Excluir"><i class="fa-solid fa-trash"></i></button>
@@ -171,7 +170,7 @@ function switchTab(tab) {
     document.getElementById('view-extrato').classList.add('hidden');
 
     if (tab === 'lancar') {
-        if (isReadOnly) return; // Impede entrar via comando no modo leitura
+        if (isReadOnly) return;
         document.getElementById('view-lancar').classList.remove('hidden');
         document.getElementById('desk-tab-lancar').className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active-tab";
         document.getElementById('desk-tab-extrato').className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
@@ -227,22 +226,18 @@ window.onload = function() {
     updateCategoryOptions('entrada');
     loadFromSupabase();
 
-    // Verificação de URL para travar o modo Somente Leitura (?view=1)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('view') === '1') {
         isReadOnly = true;
 
-        // Oculta botões "+ Lançar" no menu Desktop e Mobile
         const deskLancar = document.getElementById('desk-tab-lancar');
         const mobLancar = document.getElementById('mob-tab-lancar');
         if (deskLancar) deskLancar.classList.add('hidden');
         if (mobLancar) mobLancar.classList.add('hidden');
 
-        // Altera distintivo para "Somente Leitura"
         document.getElementById('status-text').innerText = 'Somente Leitura';
         document.getElementById('role-badge').className = 'inline-flex items-center gap-1 text-[9px] font-medium text-amber-400';
 
-        // Força a exibição fixa da aba Extrato
         switchTab('extrato');
     }
 };
