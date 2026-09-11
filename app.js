@@ -9,12 +9,12 @@ const CATEGORIAS = {
 
 let transactions = [];
 let isReadOnly = false;
+let selectedFilterPeriod = 'mes_atual';
 
 function formatBRL(val) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 }
 
-// Carrega os dados ordenados por data (mais recentes primeiro) e por data de criação
 async function loadFromSupabase() {
     const { data, error } = await _supabase
         .from('transactions')
@@ -28,6 +28,131 @@ async function loadFromSupabase() {
     }
     transactions = data || [];
     renderApp();
+}
+
+function setFilterPeriod(period) {
+    selectedFilterPeriod = period;
+    ['hoje', 'mes_atual', 'mes_anterior', 'ano', 'todos'].forEach(p => {
+        const btn = document.getElementById(`btn-period-${p}`);
+        if (btn) {
+            btn.className = p === period 
+                ? "px-3 py-1 rounded-lg text-xs font-semibold bg-brand-500 text-slate-950 whitespace-nowrap shadow"
+                : "px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 whitespace-nowrap";
+        }
+    });
+
+    document.getElementById('filter-date-start').value = "";
+    document.getElementById('filter-date-end').value = "";
+    renderApp();
+}
+
+function getFilteredTransactions() {
+    const startDate = document.getElementById('filter-date-start').value;
+    const endDate = document.getElementById('filter-date-end').value;
+    const search = document.getElementById('search-input').value.toLowerCase();
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+
+    return transactions.filter(t => {
+        const matchSearch = t.descricao.toLowerCase().includes(search) || 
+                            t.categoria.toLowerCase().includes(search) || 
+                            (t.ref_code && t.ref_code.toLowerCase().includes(search)) ||
+                            t.valor.toString().includes(search);
+
+        if (!matchSearch) return false;
+
+        if (startDate && endDate) {
+            return t.data >= startDate && t.data <= endDate;
+        }
+
+        const tDate = new Date(t.data + 'T00:00:00');
+
+        if (selectedFilterPeriod === 'hoje') {
+            return t.data === todayStr;
+        } else if (selectedFilterPeriod === 'mes_atual') {
+            return tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth;
+        } else if (selectedFilterPeriod === 'mes_anterior') {
+            const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+            const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+            return tDate.getFullYear() === prevYear && tDate.getMonth() === prevMonth;
+        } else if (selectedFilterPeriod === 'ano') {
+            return tDate.getFullYear() === currentYear;
+        }
+
+        return true;
+    });
+}
+
+function renderApp() {
+    const filtered = getFilteredTransactions();
+    const container = document.getElementById('tb-caixa-body');
+    container.innerHTML = '';
+
+    let totalEntradas = 0, totalSaidas = 0;
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">Nenhuma movimentação encontrada para este filtro.</div>`;
+    } else {
+        filtered.forEach(t => {
+            if (t.tipo === 'entrada') totalEntradas += Number(t.valor);
+            else totalSaidas += Number(t.valor);
+
+            const dateParts = t.data.split('-');
+            const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : t.data;
+
+            const row = document.createElement('div');
+            row.className = "p-3 flex items-center justify-between hover:bg-slate-800/40 transition text-xs";
+            
+            // Ícone circular com seta no estilo aplicativo bancário
+            const iconHtml = t.tipo === 'entrada'
+                ? `<div class="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-sm shrink-0">
+                    <i class="fa-solid fa-arrow-down"></i>
+                   </div>`
+                : `<div class="w-8 h-8 rounded-full bg-slate-800 text-slate-300 border border-slate-700 flex items-center justify-center font-bold text-sm shrink-0">
+                    <i class="fa-solid fa-arrow-up"></i>
+                   </div>`;
+
+            const anexoBtnHtml = t.comprovante_url 
+                ? `<a href="${t.comprovante_url}" target="_blank" class="inline-flex items-center gap-1 bg-brand-500/10 text-brand-500 border border-brand-500/30 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-brand-500/20 transition">
+                    <i class="fa-solid fa-paperclip text-brand-500"></i> Anexo
+                   </a>` 
+                : '';
+
+            const acoesEdicaoHtml = isReadOnly ? '' : `
+                <button onclick="editTransaction('${t.id}')" class="text-slate-400 hover:text-white transition p-1" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                <button onclick="deleteTransaction('${t.id}')" class="text-rose-500 hover:text-rose-400 transition p-1" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+            `;
+
+            row.innerHTML = `
+                <div class="flex items-center gap-3">
+                    ${iconHtml}
+                    <div class="space-y-0.5">
+                        <div class="font-bold text-white text-xs">${t.descricao}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">
+                            <span>${formattedDate}</span> • <span>${t.categoria}</span> ${t.ref_code ? `• <span class="text-amber-400 font-bold">${t.ref_code}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right space-y-1">
+                    <div class="font-black ${t.tipo === 'entrada' ? 'text-emerald-400' : 'text-slate-200'} text-xs sm:text-sm">
+                        ${t.tipo === 'entrada' ? '+' : '-'} ${formatBRL(t.valor)}
+                    </div>
+                    <div class="flex items-center justify-end gap-2">
+                        ${anexoBtnHtml}
+                        ${acoesEdicaoHtml}
+                    </div>
+                </div>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    document.getElementById('card-total-entradas').innerText = formatBRL(totalEntradas);
+    document.getElementById('card-total-saidas').innerText = formatBRL(totalSaidas);
+    const saldo = totalEntradas - totalSaidas;
+    document.getElementById('card-saldo-liquido').innerText = formatBRL(saldo);
 }
 
 async function saveTransaction() {
@@ -113,67 +238,6 @@ function editTransaction(id) {
     document.getElementById('btn-save-label').innerText = "Atualizar Lançamento";
 
     switchTab('lancar');
-}
-
-function renderApp() {
-    const container = document.getElementById('tb-caixa-body');
-    container.innerHTML = '';
-    let totalEntradas = 0, totalSaidas = 0;
-
-    if (transactions.length === 0) {
-        container.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">Nenhuma movimentação encontrada.</div>`;
-    } else {
-        transactions.forEach(t => {
-            if (t.tipo === 'entrada') totalEntradas += Number(t.valor);
-            else totalSaidas += Number(t.valor);
-
-            // Formatação de data em padrão brasileiro (DD/MM/AAAA)
-            const dateParts = t.data.split('-');
-            const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : t.data;
-
-            const row = document.createElement('div');
-            row.className = "p-3 flex items-center justify-between hover:bg-slate-800/30 transition text-xs";
-            
-            const anexoBtnHtml = t.comprovante_url 
-                ? `<a href="${t.comprovante_url}" target="_blank" class="inline-flex items-center gap-1 bg-brand-500/10 text-brand-500 border border-brand-500/30 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-brand-500/20 transition">
-                    <i class="fa-solid fa-paperclip text-brand-500"></i> Ver Anexo
-                   </a>` 
-                : '';
-
-            const acoesEdicaoHtml = isReadOnly ? '' : `
-                <button onclick="editTransaction('${t.id}')" class="text-slate-400 hover:text-white transition p-1" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
-                <button onclick="deleteTransaction('${t.id}')" class="text-rose-500 hover:text-rose-400 transition p-1" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-            `;
-
-            row.innerHTML = `
-                <div class="space-y-0.5">
-                    <div class="flex items-center gap-1.5 font-bold text-white">
-                        <span class="text-[10px] ${t.tipo === 'entrada' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'} font-bold px-1.5 py-0.2 rounded border uppercase">${t.tipo}</span>
-                        <span>${t.descricao}</span>
-                    </div>
-                    <div class="text-[10px] text-slate-400 font-mono">
-                        <span>${formattedDate}</span> • <span>${t.categoria}</span> ${t.ref_code ? `• <span class="text-amber-400">${t.ref_code}</span>` : ''}
-                    </div>
-                </div>
-                <div class="text-right space-y-1">
-                    <div class="font-black ${t.tipo === 'entrada' ? 'text-emerald-400' : 'text-rose-400'}">
-                        ${t.tipo === 'entrada' ? '+' : '-'} ${formatBRL(t.valor)}
-                    </div>
-                    <div class="flex items-center justify-end gap-2">
-                        ${anexoBtnHtml}
-                        ${acoesEdicaoHtml}
-                    </div>
-                </div>
-            `;
-            container.appendChild(row);
-        });
-    }
-
-    // Atualiza os quadros de totalizadores posicionados no rodapé
-    document.getElementById('card-total-entradas').innerText = formatBRL(totalEntradas);
-    document.getElementById('card-total-saidas').innerText = formatBRL(totalSaidas);
-    const saldo = totalEntradas - totalSaidas;
-    document.getElementById('card-saldo-liquido').innerText = formatBRL(saldo);
 }
 
 function switchTab(tab) {
