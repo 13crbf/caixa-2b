@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2B Imobiliária - Fluxo de Caixa Pro</title>
+    <!-- Tailwind CSS & FontAwesome -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#fbf8ed',
+                            500: '#d4af37', // Dourado 2B
+                            600: '#b89028',
+                            900: '#1a150a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+        .active-tab { background-color: #d4af37 !important; color: #020617 !important; font-weight: 800 !important; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 pb-20 md:pb-6">
+
+    <!-- Cabeçalho -->
+    <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+            <div class="flex items-center space-x-2.5">
+                <img src="https://i.ibb.co/WWKdFNmr/Whats-App-Image-2026-05-14-at-11-21-25.jpg" alt="Logo 2B" class="h-9 w-auto object-contain rounded bg-black p-0.5 border border-brand-500/30">
+                <div>
+                    <h1 class="text-xs sm:text-sm font-black text-white tracking-tight flex items-center gap-1.5">
+                        2B NEGÓCIOS <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-brand-500/20 text-brand-500 border border-brand-500/30">CRECI 053851-J</span>
+                    </h1>
+                    <span id="role-badge" class="inline-flex items-center gap-1 text-[9px] font-medium text-emerald-400">
+                        <i class="fa-solid fa-database text-[9px]"></i> <span id="status-text">Conectado ao Supabase</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Navegação Desktop -->
+            <nav class="hidden md:flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button onclick="switchTab('lancar')" id="desk-tab-lancar" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active-tab">
+                    <i class="fa-solid fa-circle-plus"></i> + Lançar
+                </button>
+                <button onclick="switchTab('extrato')" id="desk-tab-extrato" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-list-ul"></i> Extrato / Caixa
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Menu Mobile (Rodapé) -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 z-50 flex justify-around py-2 px-3 backdrop-blur-lg">
+        <button onclick="switchTab('lancar')" id="mob-tab-lancar" class="flex flex-col items-center gap-1 text-brand-500 font-extrabold text-[10px]">
+            <i class="fa-solid fa-circle-plus text-lg"></i><span>+ Lançar</span>
+        </button>
+        <button onclick="switchTab('extrato')" id="mob-tab-extrato" class="flex flex-col items-center gap-1 text-slate-400 font-medium text-[10px]">
+            <i class="fa-solid fa-receipt text-lg"></i><span>Extrato</span>
+        </button>
+    </div>
+
+    <!-- Conteúdo Principal -->
+    <main class="flex-grow max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 space-y-4">
+
+        <!-- ABA 1: LANÇAR MOVIMENTAÇÃO -->
+        <div id="view-lancar" class="space-y-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-pen-to-square text-brand-500"></i> Lançamento de Caixa
+                    </h2>
+                    <span class="text-[10px] text-slate-400 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">Banco de Dados Cloud</span>
+                </div>
+
+                <input type="hidden" id="in-tipo" value="entrada">
+
+                <!-- Seletor Tipo -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="setMovementType('entrada')" id="btn-type-entrada" class="py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                        <i class="fa-solid fa-arrow-down"></i> Entrada (+)
+                    </button>
+                    <button type="button" onclick="setMovementType('saida')" id="btn-type-saida" class="py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 bg-slate-950 text-slate-400 border border-slate-800">
+                        <i class="fa-solid fa-arrow-up"></i> Saída (-)
+                    </button>
+                </div>
+
+                <!-- Campos Data e Valor -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Data da Movimentação</label>
+                        <input type="date" id="in-data" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Valor (R$)</label>
+                        <input type="number" id="in-valor" step="0.01" placeholder="0,00" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-black text-white focus:outline-none focus:border-brand-500">
+                    </div>
+                </div>
+
+                <!-- Descrição e Categoria -->
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-400 mb-1">Descrição / Histórico</label>
+                    <input type="text" id="in-descricao" placeholder="Ex: Comissão Cury Bosque da Barra" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Categoria</label>
+                        <select id="in-categoria" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500 font-medium"></select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 mb-1">Cód. Proposta (PV) ou NF-e</label>
+                        <input type="text" id="in-ref-code" placeholder="Ex: PV-395473 ou NF-000102" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-amber-400 font-mono focus:outline-none focus:border-brand-500">
+                    </div>
+                </div>
+
+                <!-- Upload de Comprovante -->
+                <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+                    <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-paperclip text-brand-500"></i> Anexar Comprovante / PDF (Supabase Storage)
+                    </label>
+                    <input type="file" id="in-file" accept="image/*,application/pdf" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-500/20 file:text-brand-500">
+                </div>
+
+                <button onclick="saveTransaction()" class="w-full bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 text-slate-950 font-black py-3 px-4 rounded-xl shadow-lg transition text-xs flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up text-base"></i> Salvar no Supabase
+                </button>
+            </div>
+        </div>
+
+        <!-- ABA 2: EXTRATO -->
+        <div id="view-extrato" class="space-y-4 hidden">
+            <div class="grid grid-cols-3 gap-2 sm:gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 text-center sm:text-left">
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-0.5">Entradas</span>
+                    <div class="text-sm sm:text-xl font-black text-emerald-400" id="card-total-entradas">R$ 0,00</div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 text-center sm:text-left">
+                    <span class="text-[10px] font-semibold text-slate-400 uppercase block mb-0.5">Saídas</span>
+                    <div class="text-sm sm:text-xl font-black text-rose-400" id="card-total-saidas">R$ 0,00</div>
+                </div>
+                <div class="bg-slate-900 border border-brand-500/30 rounded-xl p-3 sm:p-4 text-center sm:text-left">
+                    <span class="text-[10px] font-semibold text-brand-500 uppercase block mb-0.5">Saldo Líquido</span>
+                    <div class="text-sm sm:text-xl font-black text-white" id="card-saldo-liquido">R$ 0,00</div>
+                </div>
+            </div>
+
+            <!-- Tabela de Movimentações -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                <div class="p-3 border-b border-slate-800 text-xs font-bold text-brand-500 uppercase">
+                    <i class="fa-solid fa-list-ul"></i> Movimentações Conciliadas
+                </div>
+                <div class="divide-y divide-slate-800/60" id="tb-caixa-body"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // CREDENCIAIS CONECTADAS DO SEU SUPABASE
+        const SUPABASE_URL = "https://rnswlektqerdhojlithx.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuc3dsZWt0cWVyZGhvamxpdGh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwODAxNTksImV4cCI6MjEwNDY1NjE1OX0.pDmnEQyu1HrM4g8jTn864bQG6k31vqHAPXogn-DOr5Q";
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const CATEGORIAS = {
+            entrada: ['Comissão Construtora (Cury)', 'Bônus de Entrada', 'Devolução / Reembolso', 'Outras Entradas'],
+            saida: ['Repasse Corretor Associado', 'Imposto DAS (Simples)', 'Aluguel Virtual', 'Contabilidade Digital', 'CRECI Anuidade', 'Marketing / Redes', 'Outras Saídas']
+        };
+
+        let transactions = [];
+
+        function formatBRL(val) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+        }
+
+        async function loadFromSupabase() {
+            const { data, error } = await _supabase.from('transactions').select('*').order('data', { ascending: false });
+            if (error) {
+                alert("Erro ao carregar dados: " + error.message);
+                return;
+            }
+            transactions = data || [];
+            renderApp();
+        }
+
+        async function saveTransaction() {
+            const tipo = document.getElementById('in-tipo').value;
+            const data = document.getElementById('in-data').value;
+            const valor = parseFloat(document.getElementById('in-valor').value);
+            const descricao = document.getElementById('in-descricao').value;
+            const categoria = document.getElementById('in-categoria').value;
+            const ref_code = document.getElementById('in-ref-code').value;
+            const fileInput = document.getElementById('in-file');
+
+            if (!data || isNaN(valor) || !descricao) {
+                alert("Preencha a data, valor e descrição.");
+                return;
+            }
+
+            let comprovante_url = null;
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}.${fileExt}`;
+                const { data: storageData, error: storageError } = await _supabase.storage.from('comprovantes').upload(fileName, file);
+
+                if (!storageError) {
+                    const { data: urlData } = _supabase.storage.from('comprovantes').getPublicUrl(fileName);
+                    comprovante_url = urlData.publicUrl;
+                }
+            }
+
+            const { error } = await _supabase.from('transactions').insert([{
+                tipo, data, valor, descricao, categoria, ref_code, comprovante_url
+            }]);
+
+            if (error) {
+                alert("Erro ao salvar: " + error.message);
+            } else {
+                alert("Lançamento salvo com sucesso no Supabase!");
+                resetForm();
+                switchTab('extrato');
+                loadFromSupabase();
+            }
+        }
+
+        function renderApp() {
+            const container = document.getElementById('tb-caixa-body');
+            container.innerHTML = '';
+            let totalEntradas = 0, totalSaidas = 0;
+
+            if (transactions.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">Nenhuma movimentação encontrada.</div>`;
+            } else {
+                transactions.forEach(t => {
+                    if (t.tipo === 'entrada') totalEntradas += Number(t.valor);
+                    else totalSaidas += Number(t.valor);
+
+                    const row = document.createElement('div');
+                    row.className = "p-3 flex items-center justify-between hover:bg-slate-800/30 transition text-xs";
+                    row.innerHTML = `
+                        <div class="space-y-0.5">
+                            <div class="flex items-center gap-1.5 font-bold text-white">
+                                <span class="text-[10px] ${t.tipo === 'entrada' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'} font-bold px-1.5 py-0.2 rounded border uppercase">${t.tipo}</span>
+                                <span>${t.descricao}</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-mono">
+                                <span>${t.data}</span> • <span>${t.categoria}</span> ${t.ref_code ? `• <span class="text-amber-400">${t.ref_code}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="text-right font-black ${t.tipo === 'entrada' ? 'text-emerald-400' : 'text-rose-400'}">
+                            ${t.tipo === 'entrada' ? '+' : '-'} ${formatBRL(t.valor)}
+                            ${t.comprovante_url ? `<div class="mt-1"><a href="${t.comprovante_url}" target="_blank" class="text-[10px] text-brand-500 underline"><i class="fa-solid fa-paperclip"></i> Anexo</a></div>` : ''}
+                        </div>
+                    `;
+                    container.appendChild(row);
+                });
+            }
+
+            document.getElementById('card-total-entradas').innerText = formatBRL(totalEntradas);
+            document.getElementById('card-total-saidas').innerText = formatBRL(totalSaidas);
+            const saldo = totalEntradas - totalSaidas;
+            document.getElementById('card-saldo-liquido').innerText = formatBRL(saldo);
+        }
+
+        function switchTab(tab) {
+            document.getElementById('view-lancar').classList.add('hidden');
+            document.getElementById('view-extrato').classList.add('hidden');
+
+            if (tab === 'lancar') {
+                document.getElementById('view-lancar').classList.remove('hidden');
+                document.getElementById('desk-tab-lancar').className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active-tab";
+                document.getElementById('desk-tab-extrato').className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
+            } else {
+                document.getElementById('view-extrato').classList.remove('hidden');
+                document.getElementById('desk-tab-extrato').className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 active-tab";
+                document.getElementById('desk-tab-lancar').className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center gap-1.5";
+                loadFromSupabase();
+            }
+        }
+
+        function setMovementType(tipo) {
+            document.getElementById('in-tipo').value = tipo;
+            const btnEntrada = document.getElementById('btn-type-entrada');
+            const btnSaida = document.getElementById('btn-type-saida');
+
+            if (tipo === 'entrada') {
+                btnEntrada.className = "py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+                btnSaida.className = "py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 bg-slate-950 text-slate-400 border border-slate-800";
+            } else {
+                btnSaida.className = "py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/40";
+                btnEntrada.className = "py-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 bg-slate-950 text-slate-400 border border-slate-800";
+            }
+            updateCategoryOptions(tipo);
+        }
+
+        function updateCategoryOptions(tipo) {
+            const select = document.getElementById('in-categoria');
+            select.innerHTML = '';
+            CATEGORIAS[tipo].forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c; opt.innerText = c;
+                select.appendChild(opt);
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('in-data').value = new Date().toISOString().split('T')[0];
+            document.getElementById('in-valor').value = "";
+            document.getElementById('in-descricao').value = "";
+            document.getElementById('in-ref-code').value = "";
+            document.getElementById('in-file').value = "";
+            setMovementType('entrada');
+        }
+
+        window.onload = function() {
+            document.getElementById('in-data').value = new Date().toISOString().split('T')[0];
+            updateCategoryOptions('entrada');
+            loadFromSupabase();
+
+            // Lógica do Somente Leitura via URL: ex: app.vercel.app?view=1
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('view') === '1') {
+                document.getElementById('desk-tab-lancar').classList.add('hidden');
+                document.getElementById('mob-tab-lancar').classList.add('hidden');
+                document.getElementById('status-text').innerText = 'Modo Somente Leitura';
+                switchTab('extrato');
+            }
+        };
+    </script>
+</body>
+</html>
