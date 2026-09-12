@@ -52,7 +52,7 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 return;
             }
 
-            // Trava de Saldo Negativo
+            // Trava de Saldo Negativo para retiradas
             if (tipo === 'saida') {
                 const saldoDisponivel = getSaldoAtualFn();
                 if (valor > saldoDisponivel && !id) {
@@ -66,7 +66,15 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 return;
             }
 
-            const payload = { tipo, data, valor, categoria, corretor_id };
+            // Garante o envio do campo descricao (evita NOT NULL constraint do Supabase)
+            const payload = { 
+                tipo, 
+                data, 
+                valor, 
+                categoria, 
+                descricao: categoria, 
+                corretor_id 
+            };
             if (id) payload.id = id;
 
             const { error } = await saveTransactionDB(payload);
