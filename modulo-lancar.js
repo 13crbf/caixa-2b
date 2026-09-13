@@ -114,8 +114,11 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
             if (dados) {
                 if (dados.empreendimento) document.getElementById('in-venda-empreendimento').value = dados.empreendimento;
                 if (dados.unidadeTorre) document.getElementById('in-venda-unidade-torre').value = dados.unidadeTorre;
-                if (dados.vgvTotal) {
-                    document.getElementById('in-venda-vgv-total').value = dados.vgvTotal.toFixed(2);
+                if (dados.valorNotaFiscal) {
+                    // O valor da nota é a comissão (ex. 3,65% do VGV) — calcula o VGV de trás pra frente
+                    const pctAtual = parseFloat(document.getElementById('in-venda-pct-comissao')?.value) || 3.65;
+                    const vgvCalculado = dados.valorNotaFiscal / (pctAtual / 100);
+                    document.getElementById('in-venda-vgv-total').value = vgvCalculado.toFixed(2);
                     recalcVendaValor();
                 }
                 if (statusEl) {
