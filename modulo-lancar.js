@@ -1,4 +1,4 @@
-import { saveTransactionDB } from './db.js';
+import { saveTransactionDB, uploadFileDB } from './db.js';
 
 export const CATEGORIAS = {
     entrada: [
@@ -76,6 +76,26 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
             };
             if (id) payload.id = id;
 
+            // Upload do comprovante anexado (se houver) antes de salvar
+            const fileInput = document.getElementById('in-comprovante');
+            const file = fileInput?.files?.[0];
+            if (file) {
+                btnSave.disabled = true;
+                const originalLabel = btnSave.innerHTML;
+                btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando anexo...';
+                try {
+                    const uploadedFile = await uploadFileDB(file);
+                    payload.comprovantes = [uploadedFile];
+                } catch (err) {
+                    alert("Erro ao enviar comprovante: " + err.message);
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = originalLabel;
+                    return;
+                }
+                btnSave.disabled = false;
+                btnSave.innerHTML = originalLabel;
+            }
+
             const { error } = await saveTransactionDB(payload);
             if (error) {
                 alert("Erro ao salvar lançamento: " + error.message);
@@ -128,5 +148,7 @@ export function resetForm() {
     if (idEl) idEl.value = "";
     if (dataEl) dataEl.value = new Date().toISOString().split('T')[0];
     if (valorEl) valorEl.value = "";
+    const comprovanteEl = document.getElementById('in-comprovante');
+    if (comprovanteEl) comprovanteEl.value = "";
     setMovementType('entrada');
 }
