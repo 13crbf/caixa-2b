@@ -1,16 +1,17 @@
 import { fetchTransactions } from './db.js';
-import { setupLancarEvents, resetForm } from './modulo-lancar.js';
+import { setupLancarEvents, setMovementType } from './modulo-lancar.js';
 import { renderExtratoModule, closeBottomSheet } from './modulo-extrato.js';
 import { initCorretoresModule } from './modulo-corretores.js';
 
 let transactionsState = [];
 let isBalanceHidden = false;
 let isReadOnly = false;
+let currentFilter = null;
 
 async function loadDataAndRender() {
     transactionsState = await fetchTransactions();
     calculateTotals();
-    renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender);
+    renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender, currentFilter);
 }
 
 function calculateTotals() {
@@ -23,9 +24,16 @@ function calculateTotals() {
     const saldo = entradas - saidas;
     const formatBRL = (v) => isBalanceHidden ? '••••••••' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
-    document.getElementById('val-total-entradas').innerText = formatBRL(entradas);
-    document.getElementById('val-total-saidas').innerText = formatBRL(saidas);
-    document.getElementById('val-saldo-liquido').innerText = formatBRL(saldo);
+    const elEntradas = document.getElementById('val-total-entradas');
+    const elSaidas = document.getElementById('val-total-saidas');
+    const elSaldo = document.getElementById('val-saldo-liquido');
+
+    if (elEntradas) elEntradas.innerText = formatBRL(entradas);
+    if (elSaidas) elSaidas.innerText = formatBRL(saidas);
+    if (elSaldo) {
+        elSaldo.innerText = formatBRL(saldo);
+        elSaldo.className = `text-2xl sm:text-3xl font-black tracking-tight ${saldo >= 0 ? 'text-positive' : 'text-negative'}`;
+    }
 }
 
 function getSaldoAtual() {
@@ -38,7 +46,6 @@ function getSaldoAtual() {
 }
 
 function switchTab(tab) {
-    // Impede transicionar para formulários se estiver em modo leitura
     if (isReadOnly && tab !== 'extrato') return;
 
     ['extrato', 'lancar', 'corretores'].forEach(t => {
@@ -71,34 +78,26 @@ function switchTab(tab) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-    // 1. Checa se o parâmetro ?view=1 está presente de forma estrita
     const urlParams = new URLSearchParams(window.location.search);
     isReadOnly = urlParams.get('view') === '1';
 
-    // 2. Se FOR modo somente leitura, oculta os menus operacionais
     if (isReadOnly) {
         document.getElementById('desk-tab-lancar')?.classList.add('hidden');
         document.getElementById('mob-tab-lancar')?.classList.add('hidden');
-        document.getElementById('desk-tab-corretores')?.classList.add('hidden');
-        document.getElementById('mob-tab-corretores')?.classList.add('hidden');
         
         const subtitle = document.getElementById('header-subtitle');
         if (subtitle) subtitle.innerText = "Extrato Corporativo (Somente Leitura)";
     } else {
-        // Se FOR Administrador (link normal), garante que tudo esteja visível
         document.getElementById('desk-tab-lancar')?.classList.remove('hidden');
         document.getElementById('mob-tab-lancar')?.classList.remove('hidden');
-        document.getElementById('desk-tab-corretores')?.classList.remove('hidden');
-        document.getElementById('mob-tab-corretores')?.classList.remove('hidden');
     }
 
-    // 3. Registra os ouvintes de clique nas abas
     ['extrato', 'lancar', 'corretores'].forEach(t => {
         document.getElementById(`desk-tab-${t}`)?.addEventListener('click', () => switchTab(t));
         document.getElementById(`mob-tab-${t}`)?.addEventListener('click', () => switchTab(t));
     });
 
-    // 4. Ocultar / Exibir Saldo
+    // Toggle Eye
     document.getElementById('btn-toggle-eye')?.addEventListener('click', () => {
         isBalanceHidden = !isBalanceHidden;
         const eyeIcon = document.getElementById('eye-icon');
@@ -108,22 +107,41 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (eyeText) eyeText.innerText = isBalanceHidden ? 'Exibir' : 'Ocultar';
         
         calculateTotals();
-        renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender);
+        renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender, currentFilter);
     });
 
-    // 5. Filtros da tela de Extrato
-    ['filter-dia', 'filter-mes', 'filter-ano'].forEach(id => {
-        document.getElementById(id)?.addEventListener('change', () => renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender));
+    // Modal de Filtros Avançados
+    const filterModal = document.getElementById('filter-modal');
+    document.getElementById('btn-open-filter')?.addEventListener('click', () => filterModal?.classList.remove('hidden'));
+    document.getElementById('btn-close-filter')?.addEventListener('click', () => filterModal?.classList.add('hidden'));
+
+    document.getElementById('btn-apply-filter')?.addEventListener('click', () => {
+        currentFilter = {
+            dia: document.getElementById('filter-dia')?.value || '',
+            mes: document.getElementById('filter-mes')?.value || '',
+            ano: document.getElementById('filter-ano')?.value || '',
+            search: document.getElementById('search-input')?.value || ''
+        };
+        filterModal?.classList.add('hidden');
+        renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender, currentFilter);
     });
-    document.getElementById('search-input')?.addEventListener('input', () => renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender));
-    
+
+    document.getElementById('btn-reset-filter')?.addEventListener('click', () => {
+        currentFilter = null;
+        if (document.getElementById('filter-dia')) document.getElementById('filter-dia').value = '';
+        if (document.getElementById('filter-mes')) document.getElementById('filter-mes').value = '';
+        if (document.getElementById('filter-ano')) document.getElementById('filter-ano').value = '';
+        if (document.getElementById('search-input')) document.getElementById('search-input').value = '';
+        filterModal?.classList.add('hidden');
+        renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender, currentFilter);
+    });
+
     document.getElementById('bottom-sheet-backdrop')?.addEventListener('click', closeBottomSheet);
     document.getElementById('btn-close-bs')?.addEventListener('click', closeBottomSheet);
 
-    // 6. Inicializa os módulos
+    setMovementType('entrada');
     setupLancarEvents(loadDataAndRender, getSaldoAtual);
-    await initCorretoresModule();
+    await initCorretoresModule(isReadOnly);
     
-    // Força o início na aba Extrato com os botões liberados
     switchTab('extrato');
 });
