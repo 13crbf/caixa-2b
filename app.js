@@ -1,4 +1,4 @@
-import { fetchTransactions } from './db.js';
+import { fetchTransactionsPage, fetchTotaisGerais, PAGE_SIZE } from './db.js';
 import { setupLancarEvents, setMovementType } from './modulo-lancar.js';
 import { renderExtratoModule, closeBottomSheet } from './modulo-extrato.js';
 import { initCorretoresModule } from './modulo-corretores.js';
@@ -7,20 +7,54 @@ let transactionsState = [];
 let isBalanceHidden = false;
 let isReadOnly = false;
 let currentFilter = null;
+let currentOffset = 0;
+let hasMoreTransactions = true;
+let isLoadingMore = false;
+let totaisGeraisCache = { total_entradas: 0, total_saidas: 0 };
 
+function renderCurrentExtrato() {
+    return renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender, {
+        hasMore: hasMoreTransactions,
+        onLoadMore: loadMoreTransactions,
+        isLoadingMore
+    });
+}
+
+// Recarrega do zero: totais gerais (todo o histórico) + primeira página do extrato,
+// respeitando o filtro atual. Usado ao entrar na aba, aplicar/limpar filtro e após
+// qualquer criação/edição/exclusão de lançamento.
 async function loadDataAndRender() {
-    transactionsState = await fetchTransactions();
+    currentOffset = 0;
+    hasMoreTransactions = true;
+
+    totaisGeraisCache = await fetchTotaisGerais();
     calculateTotals();
-    renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender, currentFilter);
+
+    transactionsState = await fetchTransactionsPage({ offset: 0, limit: PAGE_SIZE, filtro: currentFilter });
+    hasMoreTransactions = transactionsState.length === PAGE_SIZE;
+    currentOffset = transactionsState.length;
+
+    await renderCurrentExtrato();
+}
+
+// Busca a próxima página (mais antiga) e acrescenta à lista já exibida.
+async function loadMoreTransactions() {
+    if (isLoadingMore || !hasMoreTransactions) return;
+    isLoadingMore = true;
+    await renderCurrentExtrato(); // mostra o botão em estado "carregando"
+
+    const nextPage = await fetchTransactionsPage({ offset: currentOffset, limit: PAGE_SIZE, filtro: currentFilter });
+    transactionsState = transactionsState.concat(nextPage);
+    hasMoreTransactions = nextPage.length === PAGE_SIZE;
+    currentOffset += nextPage.length;
+    isLoadingMore = false;
+
+    await renderCurrentExtrato();
 }
 
 function calculateTotals() {
-    let entradas = 0, saidas = 0;
-    transactionsState.forEach(t => {
-        if (t.tipo === 'entrada') entradas += Number(t.valor);
-        else saidas += Number(t.valor);
-    });
-
+    const entradas = Number(totaisGeraisCache.total_entradas) || 0;
+    const saidas = Number(totaisGeraisCache.total_saidas) || 0;
     const saldo = entradas - saidas;
     const formatBRL = (v) => isBalanceHidden ? '••••••••' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
@@ -32,17 +66,12 @@ function calculateTotals() {
     if (elSaidas) elSaidas.innerText = formatBRL(saidas);
     if (elSaldo) {
         elSaldo.innerText = formatBRL(saldo);
-        elSaldo.className = `text-2xl sm:text-3xl font-black tracking-tight ${saldo >= 0 ? 'text-positive' : 'text-negative'}`;
+        elSaldo.className = `text-2xl sm:text-3xl font-black tracking-tight text-textprimary`;
     }
 }
 
 function getSaldoAtual() {
-    let entradas = 0, saidas = 0;
-    transactionsState.forEach(t => {
-        if (t.tipo === 'entrada') entradas += Number(t.valor);
-        else saidas += Number(t.valor);
-    });
-    return entradas - saidas;
+    return (Number(totaisGeraisCache.total_entradas) || 0) - (Number(totaisGeraisCache.total_saidas) || 0);
 }
 
 function switchTab(tab) {
@@ -107,7 +136,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (eyeText) eyeText.innerText = isBalanceHidden ? 'Exibir' : 'Ocultar';
         
         calculateTotals();
-        renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender, currentFilter);
+        renderCurrentExtrato();
     });
 
     // Modal de Filtros Avançados
@@ -123,7 +152,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             search: document.getElementById('search-input')?.value || ''
         };
         filterModal?.classList.add('hidden');
-        renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender, currentFilter);
+        loadDataAndRender();
     });
 
     document.getElementById('btn-reset-filter')?.addEventListener('click', () => {
@@ -133,7 +162,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (document.getElementById('filter-ano')) document.getElementById('filter-ano').value = '';
         if (document.getElementById('search-input')) document.getElementById('search-input').value = '';
         filterModal?.classList.add('hidden');
-        renderExtratoModule(transactionsState, isBalanceHidden, isReadOnly, loadDataAndRender, currentFilter);
+        loadDataAndRender();
     });
 
     document.getElementById('bottom-sheet-backdrop')?.addEventListener('click', closeBottomSheet);
