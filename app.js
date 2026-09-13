@@ -113,12 +113,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (isReadOnly) {
         document.getElementById('desk-tab-lancar')?.classList.add('hidden');
         document.getElementById('mob-tab-lancar')?.classList.add('hidden');
+        document.getElementById('desk-tab-corretores')?.classList.add('hidden');
+        document.getElementById('mob-tab-corretores')?.classList.add('hidden');
         
         const subtitle = document.getElementById('header-subtitle');
         if (subtitle) subtitle.innerText = "Extrato Corporativo (Somente Leitura)";
     } else {
         document.getElementById('desk-tab-lancar')?.classList.remove('hidden');
         document.getElementById('mob-tab-lancar')?.classList.remove('hidden');
+        document.getElementById('desk-tab-corretores')?.classList.remove('hidden');
+        document.getElementById('mob-tab-corretores')?.classList.remove('hidden');
     }
 
     ['extrato', 'lancar', 'corretores'].forEach(t => {
