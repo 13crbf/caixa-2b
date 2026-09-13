@@ -27,7 +27,11 @@ async function loadDataAndRender() {
     currentOffset = 0;
     hasMoreTransactions = true;
 
-    totaisGeraisCache = await fetchTotaisGerais();
+    try {
+        totaisGeraisCache = await fetchTotaisGerais();
+    } catch (err) {
+        alert("Erro ao carregar totais gerais: " + (err.message || JSON.stringify(err)));
+    }
     calculateTotals();
 
     transactionsState = await fetchTransactionsPage({ offset: 0, limit: PAGE_SIZE, filtro: currentFilter });
