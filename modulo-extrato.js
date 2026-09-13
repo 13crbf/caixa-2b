@@ -46,12 +46,9 @@ export async function renderExtratoModule(transactions, isBalanceHidden, isReadO
     sortedDates.forEach(dateStr => {
         const saldoMomentaneo = Number(saldosPorDia[dateStr]) || 0;
 
-        // Ordenação Interna do Dia: Entradas (+) SEMPRE aparecem ANTES de Saídas (-)
-        const dayTransactions = groups[dateStr].sort((a, b) => {
-            if (a.tipo === 'entrada' && b.tipo === 'saida') return -1;
-            if (a.tipo === 'saida' && b.tipo === 'entrada') return 1;
-            return 0;
-        });
+        // Ordenação Interna do Dia: cronológica — o lançamento mais recente
+        // (por created_at) aparece primeiro, já vem assim da consulta ao banco.
+        const dayTransactions = groups[dateStr];
 
         const groupSection = document.createElement('div');
         groupSection.className = "space-y-1 py-1";
