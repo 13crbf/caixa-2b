@@ -64,9 +64,11 @@ export async function loadCorretoresUI(isReadOnly = false) {
     corretoresState = await fetchCorretores();
     const container = document.getElementById('corretores-list-container');
     const selectLancar = document.getElementById('in-corretor-id');
+    const selectVenda = document.getElementById('in-venda-corretor-id');
 
     if (container) container.innerHTML = '';
     if (selectLancar) selectLancar.innerHTML = '<option value="">Selecione um Corretor...</option>';
+    if (selectVenda) selectVenda.innerHTML = '<option value="">Selecione um Corretor...</option>';
 
     if (!corretoresState || corretoresState.length === 0) {
         if (container) container.innerHTML = `<div class="p-6 text-center text-xs text-textsecondary">Nenhum corretor parceiro cadastrado.</div>`;
@@ -74,21 +76,26 @@ export async function loadCorretoresUI(isReadOnly = false) {
     }
 
     corretoresState.forEach(c => {
+        const isInactive = c.ativo === false;
+
         // Tabela / Lista
         if (container) {
             const row = document.createElement('div');
-            row.className = "p-3.5 flex items-center justify-between hover:bg-darkbg/40 transition text-xs border-b border-cardborder/40 last:border-0";
-            
+            row.className = `p-3.5 flex items-center justify-between hover:bg-darkbg/40 transition text-xs border-b border-cardborder/40 last:border-0 ${isInactive ? 'opacity-50' : ''}`;
+
             const actionsHtml = (!isReadOnly) ? `
                 <div class="flex items-center gap-2">
                     <button class="p-1.5 text-textsecondary hover:text-brand-500 transition" onclick="window.editCorretor('${c.id}')" title="Editar Corretor"><i class="fa-solid fa-pen-to-square"></i></button>
-                    <button class="p-1.5 text-negative hover:text-red-400 transition" onclick="window.deleteCorretor('${c.id}')" title="Excluir Corretor"><i class="fa-solid fa-trash"></i></button>
+                    ${isInactive
+                        ? `<button class="p-1.5 text-positive hover:text-green-400 transition" onclick="window.toggleAtivoCorretor('${c.id}', true)" title="Reativar Corretor"><i class="fa-solid fa-rotate-left"></i></button>`
+                        : `<button class="p-1.5 text-negative hover:text-red-400 transition" onclick="window.deleteCorretor('${c.id}')" title="Excluir Corretor"><i class="fa-solid fa-trash"></i></button>`
+                    }
                 </div>
             ` : '';
 
             row.innerHTML = `
                 <div>
-                    <div class="font-bold text-white">${c.nome}</div>
+                    <div class="font-bold text-white">${c.nome} ${isInactive ? '<span class="text-[9px] font-bold text-textsecondary border border-cardborder/60 rounded px-1 py-0.5 ml-1 align-middle">INATIVO</span>' : ''}</div>
                     <div class="text-[10px] text-textsecondary">CRECI: ${c.creci} | Tel: ${c.telefone} | CPF: ${c.cpf}</div>
                 </div>
                 <div class="flex items-center gap-3">
@@ -101,12 +108,18 @@ export async function loadCorretoresUI(isReadOnly = false) {
             container.appendChild(row);
         }
 
-        // Dropdown no formulário de Lançamentos
-        if (selectLancar) {
+        // Dropdown no formulário de Lançamentos — só corretores ativos
+        if (selectLancar && !isInactive) {
             const opt = document.createElement('option');
             opt.value = c.id;
             opt.innerText = `${c.nome} (${c.creci})`;
             selectLancar.appendChild(opt);
+        }
+        if (selectVenda && !isInactive) {
+            const optVenda = document.createElement('option');
+            optVenda.value = c.id;
+            optVenda.innerText = `${c.nome} (${c.creci})`;
+            selectVenda.appendChild(optVenda);
         }
     });
 
@@ -128,11 +141,29 @@ export async function loadCorretoresUI(isReadOnly = false) {
         document.getElementById('cor-tab-novo').click();
     };
 
+    // Ativa/desativa um corretor sem apagar seu histórico
+    window.toggleAtivoCorretor = async (id, novoStatus) => {
+        const { error } = await saveCorretorDB({ id, ativo: novoStatus });
+        if (error) alert("Erro ao atualizar corretor: " + error.message);
+        else await loadCorretoresUI(isReadOnly);
+    };
+
     window.deleteCorretor = async (id) => {
-        if (confirm("Deseja realmente excluir este corretor do cadastro?")) {
-            const { error } = await supabase.from('corretores').delete().eq('id', id);
-            if (error) alert("Erro ao excluir corretor: " + error.message);
-            else await loadCorretoresUI(isReadOnly);
+        if (!confirm("Deseja realmente excluir este corretor do cadastro?")) return;
+
+        const { error } = await supabase.from('corretores').delete().eq('id', id);
+        if (!error) {
+            await loadCorretoresUI(isReadOnly);
+            return;
+        }
+
+        // Código 23503 = violação de chave estrangeira (existem vendas/repasses vinculados a este corretor)
+        if (error.code === '23503') {
+            if (confirm("Este corretor já tem vendas/repasses registrados e não pode ser excluído sem perder esse histórico.\n\nDeseja apenas DESATIVAR o corretor? Ele deixa de aparecer para novos lançamentos, mas o histórico é mantido.")) {
+                await window.toggleAtivoCorretor(id, false);
+            }
+        } else {
+            alert("Erro ao excluir corretor: " + error.message);
         }
     };
 }
