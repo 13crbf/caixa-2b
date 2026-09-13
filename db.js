@@ -63,13 +63,20 @@ export async function fetchSaldoAteData(dataLimite) {
 }
 
 export async function fetchCorretores() {
-    const { data, error } = await supabase.from('corretores').select('*').order('nome', { ascending: true });
+    const { data, error } = await supabase.from('corretores').select('*').order('ativo', { ascending: false }).order('nome', { ascending: true });
     if (error) console.error("Erro Supabase:", error);
     return data || [];
 }
 
 export async function saveCorretorDB(corretorData) {
     return await supabase.from('corretores').insert([corretorData]);
+}
+
+// Grava os dados da venda (VGV, corretor, empreendimento etc.) vinculados a um
+// lançamento de "Comissão Construtora (Cury)". Retorna a linha inserida (com id)
+// para que o lançamento na tabela transactions possa referenciá-la via venda_id.
+export async function saveVendaDB(vendaData) {
+    return await supabase.from('vendas').insert([vendaData]).select().single();
 }
 
 export async function saveTransactionDB(payload) {
