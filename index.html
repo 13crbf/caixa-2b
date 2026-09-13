@@ -1,352 +1,349 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TwoB Imobiliária - Fluxo de Caixa Pro</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>TwoB Imobiliária</title>
     <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        darkbg: '#0D1117',
-                        cardbg: '#161B22',
-                        cardborder: '#30363D',
-                        textprimary: '#F0F6FC',
-                        textsecondary: '#8B949E',
-                        positive: '#2EA043',
-                        negative: '#FF6B6B',
-                        brand: {
-                            500: '#D4AF37',
-                            600: '#B89028',
-                        }
-                    }
-                }
-            }
-        }
+      tailwind.config = {
+          darkMode: 'class',
+          theme: {
+              extend: {
+                  fontFamily: { sans: ['Inter', 'sans-serif'] },
+                  colors: {
+                      darkbg: '#0D1117',
+                      cardbg: '#161B22',
+                      cardborder: '#30363D',
+                      textprimary: '#F0F6FC',
+                      textsecondary: '#80949E',
+                      positive: '#2EA043',
+                      negative: '#FF6B6B',
+                      brand: {
+                          500: '#D4AF37',
+                          600: '#B89028',
+                      }
+                  }
+              }
+          }
+      }
     </script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #0D1117; color: #F0F6FC; }
-        .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #0D1117; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #30363D; border-radius: 4px; }
-        .bottom-sheet-backdrop { transition: opacity 0.3s ease-in-out; }
-        .bottom-sheet-panel { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-        .bottom-sheet-hidden { transform: translateY(100%); }
-        .bottom-sheet-visible { transform: translateY(0); }
-        .pill-active { background-color: #D4AF37 !important; color: #0D1117 !important; font-weight: 700 !important; }
-        select option { background-color: #161B22; color: #F0F6FC; }
+      body { font-family: 'Inter', sans-serif; background-color: #0D1117; color: #F0F6FC; }
+      .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: #0D1117; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #30363D; border-radius: 4px; }
+      .bottom-sheet-backdrop { transition: opacity 0.3s ease-in-out; }
+      .bottom-sheet-panel { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+      .bottom-sheet-hidden { transform: translateY(100%); }
+      .bottom-sheet-visible { transform: translateY(0); }
+      .pill-active { background-color: #D4AF37 !important; color: #0D1117 !important; font-weight: 700 !important; }
+      select option { background-color: #161B22; color: #F0F6FC; }
     </style>
-</head>
-<body class="min-h-screen flex flex-col bg-darkbg text-textprimary pb-24 md:pb-8">
-
+  </head>
+  <body class="bg-darkbg text-textprimary flex min-h-screen flex-col pb-24 md:pb-8">
     <!-- CABEÇALHO COM LOGO REDONDO ESTILO INSTAGRAM -->
-    <header class="bg-[#161B22]/90 border-b border-cardborder/40 sticky top-0 z-30 backdrop-blur-md">
-        <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-            <div class="flex items-center space-x-3">
-                <img src="https://i.ibb.co/WWKdFNmr/Whats-App-Image-2026-05-14-at-11-21-25.jpg" alt="Logo TwoB" class="h-10 w-10 object-cover rounded-full border-2 border-brand-500 shadow-md">
-                <div>
-                    <h1 class="text-sm sm:text-base font-extrabold text-white tracking-tight leading-tight">TwoB Imobiliária</h1>
-                    <p class="text-[11px] text-textsecondary font-medium" id="header-subtitle">Fluxo de Caixa & Extrato</p>
-                </div>
-            </div>
-
-            <!-- Navegação Desktop -->
-            <nav class="hidden md:flex items-center space-x-1 bg-darkbg p-1 rounded-xl border border-cardborder/40">
-                <button id="desk-tab-extrato" class="px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 pill-active">
-                    <i class="fa-solid fa-receipt"></i> Extrato
-                </button>
-                <button id="desk-tab-lancar" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-textsecondary hover:text-white transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-circle-plus"></i> + Lançar
-                </button>
-                <button id="desk-tab-corretores" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-textsecondary hover:text-white transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-user-tie"></i> Corretores
-                </button>
-            </nav>
+    <header class="border-cardborder/40 sticky top-0 z-30 border-b bg-[#161B22]/90 backdrop-blur-md">
+      <div class="mx-auto flex h-16 max-w-4xl items-center justify-between gap-3 px-4">
+        <div class="flex items-center space-x-3">
+          <img src="https://i.ibb.co/WWKdFNmr/Whats-App-Image-2026-05-14-at-11-21-25.jpg" alt="Logo TwoB" class="border-brand-500 h-10 w-10 rounded-full border-2 object-cover shadow-md" />
+          <div>
+            <h1 class="text-sm leading-tight font-extrabold tracking-tight text-white sm:text-base">TwoB Imobiliária</h1>
+          </div>
         </div>
+
+        <!-- Navegação Desktop -->
+        <nav class="bg-darkbg border-cardborder/40 hidden items-center space-x-1 rounded-xl border p-1 md:flex">
+          <button id="desk-tab-lancar" class="text-textsecondary flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold transition hover:text-white"><i class="fa-solid fa-circle-plus"></i> + Lançar</button>
+          <button id="desk-tab-extrato" class="pill-active flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition"><i class="fa-solid fa-receipt"></i> Extrato</button>
+          <button id="desk-tab-corretores" class="text-textsecondary flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold transition hover:text-white"><i class="fa-solid fa-user-tie"></i> Corretores</button>
+        </nav>
+      </div>
     </header>
 
     <!-- MENU MOBILE (RODAPÉ FIXO) -->
-    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-[#161B22]/95 border-t border-cardborder/40 z-40 flex justify-around py-2.5 px-4 backdrop-blur-lg">
-        <button id="mob-tab-extrato" class="flex flex-col items-center gap-1 text-brand-500 font-bold text-[11px]">
-            <i class="fa-solid fa-receipt text-lg"></i><span>Extrato</span>
-        </button>
-        <button id="mob-tab-lancar" class="flex flex-col items-center gap-1 text-textsecondary font-medium text-[11px]">
-            <i class="fa-solid fa-circle-plus text-lg"></i><span>+ Lançar</span>
-        </button>
-        <button id="mob-tab-corretores" class="flex flex-col items-center gap-1 text-textsecondary font-medium text-[11px]">
-            <i class="fa-solid fa-user-tie text-lg"></i><span>Corretores</span>
-        </button>
+    <div class="border-cardborder/40 fixed right-0 bottom-0 left-0 z-40 flex justify-around border-t bg-[#161B22]/95 px-4 py-2.5 backdrop-blur-lg md:hidden">
+      <button id="mob-tab-lancar" class="text-textsecondary flex flex-col items-center gap-1 text-[11px] font-medium"><i class="fa-solid fa-circle-plus text-lg"></i><span>+ Lançar</span></button>
+      <button id="mob-tab-extrato" class="text-brand-500 flex flex-col items-center gap-1 text-[11px] font-bold"><i class="fa-solid fa-receipt text-lg"></i><span>Extrato</span></button>
+      <button id="mob-tab-corretores" class="text-textsecondary flex flex-col items-center gap-1 text-[11px] font-medium"><i class="fa-solid fa-user-tie text-lg"></i><span>Corretores</span></button>
     </div>
 
     <!-- CONTEÚDO PRINCIPAL -->
-    <main class="flex-grow max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 space-y-4">
+    <main class="mx-auto w-full max-w-4xl flex-grow space-y-4 px-3 py-4 sm:px-6">
+      <!-- ABA 1: EXTRATO BANCÁRIO (CARDS MINIMALISTAS) -->
+      <div id="view-extrato" class="space-y-4">
+        <!-- RESUMO DE SALDO MINIMALISTA SEM BORDAS PESADAS -->
+        <div class="space-y-3 px-1 py-2">
+          <div class="flex items-center justify-between">
+            <span class="text-textsecondary text-[11px] font-bold tracking-wider uppercase">Saldo</span>
+            <button id="btn-toggle-eye" class="text-textsecondary flex items-center gap-1.5 text-xs transition hover:text-white"><i class="fa-solid fa-eye" id="eye-icon"></i> <span id="eye-text" class="hidden text-[10px] sm:inline">Ocultar</span></button>
+          </div>
 
-        <!-- ABA 1: EXTRATO BANCÁRIO (CARDS MINIMALISTAS) -->
-        <div id="view-extrato" class="space-y-4">
-            
-            <!-- RESUMO DE SALDO MINIMALISTA SEM BORDAS PESADAS -->
-            <div class="py-2 px-1 space-y-3">
-                <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-bold text-textsecondary uppercase tracking-wider">Saldo em Conta Corporativa</span>
-                    <button id="btn-toggle-eye" class="text-textsecondary hover:text-white transition text-xs flex items-center gap-1.5">
-                        <i class="fa-solid fa-eye" id="eye-icon"></i> <span id="eye-text" class="text-[10px] hidden sm:inline">Ocultar</span>
-                    </button>
-                </div>
-                
-                <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 border-b border-cardborder/40 pb-4">
-                    <div>
-                        <div class="text-2xl sm:text-3xl font-black tracking-tight" id="val-saldo-liquido">R$ 0,00</div>
-                    </div>
-                    <div class="flex items-center gap-4 text-xs">
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-positive"></span>
-                            <span class="text-textsecondary">Entradas:</span>
-                            <span class="font-black text-positive" id="val-total-entradas">R$ 0,00</span>
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-negative"></span>
-                            <span class="text-textsecondary">Saídas:</span>
-                            <span class="font-black text-negative" id="val-total-saidas">R$ 0,00</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- BARRA DE BUSCA E BOTÃO POPUP DE FILTROS -->
-                <div class="flex items-center justify-between pt-1">
-                    <span class="text-xs font-bold text-textsecondary"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Exibindo os mais recentes primeiro</span>
-                    <button id="btn-open-filter" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cardbg text-brand-500 border border-cardborder/60 hover:border-brand-500 transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-sliders"></i> Filtros & Busca
-                    </button>
-                </div>
+          <div class="border-cardborder/40 flex flex-col justify-between gap-2 border-b pb-4 sm:flex-row sm:items-baseline">
+            <div>
+              <div class="text-2xl font-black tracking-tight sm:text-3xl" id="val-saldo-liquido">R$ 0,00</div>
             </div>
+            <div class="flex items-center gap-4 text-xs">
+              <div class="flex items-center gap-1.5">
+                <span class="bg-positive h-2 w-2 rounded-full"></span>
+                <span class="text-textsecondary">Entradas:</span>
+                <span class="text-positive font-black" id="val-total-entradas">R$ 0,00</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="bg-negative h-2 w-2 rounded-full"></span>
+                <span class="text-textsecondary">Saídas:</span>
+                <span class="text-negative font-black" id="val-total-saidas">R$ 0,00</span>
+              </div>
+            </div>
+          </div>
 
-            <!-- TRANSAÇÕES AGRUPADAS COM SALDO MOMENTÂNEO -->
-            <div id="transactions-grouped-container" class="space-y-4"></div>
+          <!-- BARRA DE BUSCA E BOTÃO POPUP DE FILTROS -->
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-textsecondary text-xs font-bold"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Lançamentos recentes..</span>
+            <button id="btn-open-filter" class="bg-cardbg text-brand-500 border-cardborder/60 hover:border-brand-500 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition"><i class="fa-solid fa-sliders"></i> Filtros & Busca</button>
+          </div>
         </div>
 
-        <!-- ABA 2: LANÇAR MOVIMENTAÇÃO -->
-        <div id="view-lancar" class="space-y-4 hidden">
-            <div class="bg-cardbg border border-cardborder/60 rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl">
-                <div class="flex items-center justify-between border-b border-cardborder/40 pb-3">
-                    <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-pen-to-square text-brand-500"></i> <span id="form-title">Nova Movimentação</span>
-                    </h2>
-                </div>
+        <!-- TRANSAÇÕES AGRUPADAS COM SALDO MOMENTÂNEO -->
+        <div id="transactions-grouped-container" class="space-y-4"></div>
+      </div>
 
-                <input type="hidden" id="in-id" value="">
-                <input type="hidden" id="in-tipo" value="entrada">
+      <!-- ABA 2: LANÇAR MOVIMENTAÇÃO -->
+      <div id="view-lancar" class="hidden space-y-4">
+        <div class="bg-cardbg border-cardborder/60 space-y-4 rounded-2xl border p-4 shadow-xl sm:p-6">
+          <div class="border-cardborder/40 flex items-center justify-between border-b pb-3">
+            <h2 class="flex items-center gap-2 text-sm font-bold text-white sm:text-base"><i class="fa-solid fa-pen-to-square text-brand-500"></i> <span id="form-title">Nova Movimentação</span></h2>
+          </div>
 
-                <div class="grid grid-cols-2 gap-2">
-                    <button type="button" id="btn-type-entrada" class="py-2.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1.5 bg-positive/20 text-positive border border-positive/40">
-                        <i class="fa-solid fa-arrow-down"></i> Entrada (+)
-                    </button>
-                    <button type="button" id="btn-type-saida" class="py-2.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1.5 bg-darkbg text-textsecondary border border-cardborder">
-                        <i class="fa-solid fa-arrow-up"></i> Saída (-)
-                    </button>
-                </div>
+          <input type="hidden" id="in-id" value="" />
+          <input type="hidden" id="in-tipo" value="entrada" />
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-[11px] font-bold text-textsecondary mb-1">Data</label>
-                        <input type="date" id="in-data" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-textsecondary mb-1">Valor (R$)</label>
-                        <input type="number" id="in-valor" step="0.01" placeholder="0,00" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2.5 text-sm font-black text-white focus:outline-none focus:border-brand-500">
-                    </div>
-                </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" id="btn-type-entrada" class="bg-positive/20 text-positive border-positive/40 flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-extrabold transition"><i class="fa-solid fa-arrow-down"></i> Entrada (+)</button>
+            <button type="button" id="btn-type-saida" class="bg-darkbg text-textsecondary border-cardborder flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-extrabold transition"><i class="fa-solid fa-arrow-up"></i> Saída (-)</button>
+          </div>
 
-                <div>
-                    <label class="block text-[11px] font-bold text-textsecondary mb-1">Categoria</label>
-                    <select id="in-categoria" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500 font-medium"></select>
-                </div>
-
-                <div id="container-select-corretor" class="hidden">
-                    <label class="block text-[11px] font-bold text-brand-500 mb-1">Vincular Corretor Beneficiário</label>
-                    <select id="in-corretor-id" class="w-full bg-darkbg border border-brand-500/50 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500 font-medium"></select>
-                </div>
-
-                <div>
-                    <label class="block text-[11px] font-bold text-textsecondary mb-1">Comprovante (Imagem ou PDF) — opcional</label>
-                    <input type="file" id="in-comprovante" accept="image/*,application/pdf" class="w-full text-xs text-textsecondary file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-500/20 file:text-brand-500">
-                </div>
-
-                <div class="flex gap-2 pt-2">
-                    <button id="btn-save-tx" class="flex-grow bg-gradient-to-r from-brand-500 to-brand-600 text-darkbg font-black py-3 px-4 rounded-xl shadow-lg transition text-xs flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-check text-base"></i> <span id="btn-save-label">Salvar Lançamento</span>
-                    </button>
-                </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="text-textsecondary mb-1 block text-[11px] font-bold">Data</label>
+              <input type="date" id="in-data" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2.5 text-xs text-white focus:outline-none" />
             </div>
+            <div>
+              <label class="text-textsecondary mb-1 block text-[11px] font-bold">Valor (R$)</label>
+              <input type="number" id="in-valor" step="0.01" placeholder="0,00" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2.5 text-sm font-black text-white focus:outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label class="text-textsecondary mb-1 block text-[11px] font-bold">Categoria</label>
+            <select id="in-categoria" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2.5 text-xs font-medium text-white focus:outline-none"></select>
+          </div>
+
+          <div id="container-select-corretor" class="hidden">
+            <label class="text-brand-500 mb-1 block text-[11px] font-bold">Vincular Corretor Beneficiário</label>
+            <select id="in-corretor-id" class="bg-darkbg border-brand-500/50 focus:border-brand-500 w-full rounded-xl border px-3 py-2.5 text-xs font-medium text-white focus:outline-none"></select>
+          </div>
+
+          <div>
+            <label class="text-textsecondary mb-1 block text-[11px] font-bold">Comprovante (Imagem ou PDF) — opcional</label>
+            <input type="file" id="in-comprovante" accept="image/*,application/pdf" class="text-textsecondary file:bg-brand-500/20 file:text-brand-500 w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-1.5 file:text-xs file:font-semibold" />
+          </div>
+
+          <div class="flex gap-2 pt-2">
+            <button id="btn-save-tx" class="from-brand-500 to-brand-600 text-darkbg flex flex-grow items-center justify-center gap-2 rounded-xl bg-gradient-to-r px-4 py-3 text-xs font-black shadow-lg transition"><i class="fa-solid fa-check text-base"></i> <span id="btn-save-label">Salvar Lançamento</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA 3: GERENCIAMENTO DE CORRETORES (SUB-ABAS) -->
+      <div id="view-corretores" class="hidden space-y-4">
+        <!-- SUB-NAVEGAÇÃO DE CORRETORES -->
+        <div class="bg-cardbg border-cardborder/60 flex items-center gap-1 rounded-xl border p-1">
+          <button id="cor-tab-lista" class="pill-active flex-1 rounded-lg px-3 py-1.5 text-center text-xs font-bold"><i class="fa-solid fa-users mr-1"></i> Corretores Cadastrados</button>
+          <button id="cor-tab-novo" class="text-textsecondary flex-1 rounded-lg px-3 py-1.5 text-center text-xs font-semibold hover:text-white"><i class="fa-solid fa-user-plus mr-1"></i> Cadastrar Novo</button>
         </div>
 
-        <!-- ABA 3: GERENCIAMENTO DE CORRETORES (SUB-ABAS) -->
-        <div id="view-corretores" class="space-y-4 hidden">
-            <!-- SUB-NAVEGAÇÃO DE CORRETORES -->
-            <div class="flex items-center gap-1 bg-cardbg p-1 rounded-xl border border-cardborder/60">
-                <button id="cor-tab-lista" class="px-3 py-1.5 rounded-lg text-xs font-bold pill-active flex-1 text-center">
-                    <i class="fa-solid fa-users mr-1"></i> Corretores Cadastrados
-                </button>
-                <button id="cor-tab-novo" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-textsecondary hover:text-white flex-1 text-center">
-                    <i class="fa-solid fa-user-plus mr-1"></i> Cadastrar Novo
-                </button>
-            </div>
-
-            <!-- SUB-TELA 1: LISTA DE CORRETORES -->
-            <div id="cor-view-lista" class="bg-cardbg border border-cardborder/60 rounded-2xl overflow-hidden shadow-xl">
-                <div class="divide-y divide-cardborder/40" id="corretores-list-container"></div>
-            </div>
-
-            <!-- SUB-TELA 2: FORMULÁRIO DE CADASTRO / EDIÇÃO -->
-            <div id="cor-view-novo" class="bg-cardbg border border-cardborder/60 rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl hidden">
-                <h2 class="text-xs font-bold text-brand-500 uppercase tracking-wider border-b border-cardborder/40 pb-2" id="cor-form-title">
-                    Cadastrar Novo Corretor
-                </h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-[11px] font-bold text-textsecondary mb-1">Nome Completo</label>
-                        <input type="text" id="cor-nome" placeholder="Ex: Roberto Alves" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-textsecondary mb-1">Telefone / WhatsApp</label>
-                        <input type="text" id="cor-telefone" placeholder="(11) 99999-9999" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-textsecondary mb-1">CRECI</label>
-                        <input type="text" id="cor-creci" placeholder="123456-F" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-textsecondary mb-1">CPF</label>
-                        <input type="text" id="cor-cpf" placeholder="000.000.000-00" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-[11px] font-bold text-textsecondary mb-1">Chave Pix</label>
-                    <input type="text" id="cor-pix" placeholder="E-mail, CPF, Celular ou Aleatória" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 font-mono">
-                </div>
-                <button id="btn-save-corretor" class="w-full bg-brand-500 hover:bg-brand-600 text-darkbg font-bold py-2.5 px-4 rounded-xl text-xs shadow transition">
-                    Salvar Corretor
-                </button>
-            </div>
+        <!-- SUB-TELA 1: LISTA DE CORRETORES -->
+        <div id="cor-view-lista" class="bg-cardbg border-cardborder/60 overflow-hidden rounded-2xl border shadow-xl">
+          <div class="divide-cardborder/40 divide-y" id="corretores-list-container"></div>
         </div>
 
+        <!-- SUB-TELA 2: FORMULÁRIO DE CADASTRO / EDIÇÃO -->
+        <div id="cor-view-novo" class="bg-cardbg border-cardborder/60 hidden space-y-4 rounded-2xl border p-4 shadow-xl sm:p-6">
+          <h2 class="text-brand-500 border-cardborder/40 border-b pb-2 text-xs font-bold tracking-wider uppercase" id="cor-form-title">Cadastrar Novo Corretor</h2>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="text-textsecondary mb-1 block text-[11px] font-bold">Nome Completo</label>
+              <input type="text" id="cor-nome" placeholder="Ex: Roberto Alves" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2 text-xs text-white focus:outline-none" />
+            </div>
+            <div>
+              <label class="text-textsecondary mb-1 block text-[11px] font-bold">Telefone / WhatsApp</label>
+              <input type="text" id="cor-telefone" placeholder="(11) 99999-9999" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2 text-xs text-white focus:outline-none" />
+            </div>
+            <div>
+              <label class="text-textsecondary mb-1 block text-[11px] font-bold">CRECI</label>
+              <input type="text" id="cor-creci" placeholder="123456-F" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2 text-xs text-white focus:outline-none" />
+            </div>
+            <div>
+              <label class="text-textsecondary mb-1 block text-[11px] font-bold">CPF</label>
+              <input type="text" id="cor-cpf" placeholder="000.000.000-00" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2 text-xs text-white focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label class="text-textsecondary mb-1 block text-[11px] font-bold">Chave Pix</label>
+            <input type="text" id="cor-pix" placeholder="E-mail, CPF, Celular ou Aleatória" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2 font-mono text-xs text-white focus:outline-none" />
+          </div>
+          <button id="btn-save-corretor" class="bg-brand-500 hover:bg-brand-600 text-darkbg w-full rounded-xl px-4 py-2.5 text-xs font-bold shadow transition">Salvar Corretor</button>
+        </div>
+      </div>
     </main>
 
     <!-- POP-UP / MODAL DE FILTROS AVANÇADOS & BUSCA -->
-    <div id="filter-modal" class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-cardbg border border-cardborder rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl relative">
-            <div class="flex items-center justify-between border-b border-cardborder/60 pb-3">
-                <h3 class="text-xs font-bold text-brand-500 uppercase flex items-center gap-1.5">
-                    <i class="fa-solid fa-sliders"></i> Filtros & Pesquisa
-                </h3>
-                <button id="btn-close-filter" class="text-textsecondary hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-[11px] font-bold text-textsecondary mb-1">Buscar por Categoria ou Descrição</label>
-                    <input type="text" id="search-input" placeholder="Ex: Cury, DAS, Repasse..." class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
-                </div>
-
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block text-[10px] font-bold text-textsecondary mb-1">Dia</label>
-                        <select id="filter-dia" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-2 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500">
-                            <option value="">Todos</option>
-                            <option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option>
-                            <option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option>
-                            <option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
-                            <option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option>
-                            <option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option>
-                            <option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-textsecondary mb-1">Mês</label>
-                        <select id="filter-mes" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-2 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500">
-                            <option value="">Todos</option>
-                            <option value="01">Janeiro</option><option value="02">Fevereiro</option><option value="03">Março</option><option value="04">Abril</option>
-                            <option value="05">Maio</option><option value="06">Junho</option><option value="07">Julho</option><option value="08">Agosto</option>
-                            <option value="09">Setembro</option><option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-textsecondary mb-1">Ano</label>
-                        <select id="filter-ano" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-2 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500">
-                            <option value="">Todos</option>
-                            <option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex gap-2 pt-2 border-t border-cardborder/60">
-                <button id="btn-apply-filter" class="flex-grow bg-brand-500 hover:bg-brand-600 text-darkbg font-bold py-2 px-3 rounded-xl text-xs transition">Aplicar Filtros</button>
-                <button id="btn-reset-filter" class="bg-darkbg hover:bg-cardborder text-textsecondary font-semibold py-2 px-3 rounded-xl text-xs border border-cardborder/60">Limpar</button>
-            </div>
+    <div id="filter-modal" class="fixed inset-0 z-50 flex hidden items-center justify-center bg-black/70 p-4">
+      <div class="bg-cardbg border-cardborder relative w-full max-w-md space-y-4 rounded-2xl border p-5 shadow-2xl">
+        <div class="border-cardborder/60 flex items-center justify-between border-b pb-3">
+          <h3 class="text-brand-500 flex items-center gap-1.5 text-xs font-bold uppercase"><i class="fa-solid fa-sliders"></i> Filtros & Pesquisa</h3>
+          <button id="btn-close-filter" class="text-textsecondary hover:text-white"><i class="fa-solid fa-xmark"></i></button>
         </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="text-textsecondary mb-1 block text-[11px] font-bold">Buscar por Categoria ou Descrição</label>
+            <input type="text" id="search-input" placeholder="Ex: Cury, DAS, Repasse..." class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2 text-xs text-white focus:outline-none" />
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="text-textsecondary mb-1 block text-[10px] font-bold">Dia</label>
+              <select id="filter-dia" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-2 py-1.5 text-xs text-white focus:outline-none">
+                <option value="">Todos</option>
+                <option value="01">01</option>
+                <option value="02">02</option>
+                <option value="03">03</option>
+                <option value="04">04</option>
+                <option value="05">05</option>
+                <option value="06">06</option>
+                <option value="07">07</option>
+                <option value="08">08</option>
+                <option value="09">09</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+                <option value="13">13</option>
+                <option value="14">14</option>
+                <option value="15">15</option>
+                <option value="16">16</option>
+                <option value="17">17</option>
+                <option value="18">18</option>
+                <option value="19">19</option>
+                <option value="20">20</option>
+                <option value="21">21</option>
+                <option value="22">22</option>
+                <option value="23">23</option>
+                <option value="24">24</option>
+                <option value="25">25</option>
+                <option value="26">26</option>
+                <option value="27">27</option>
+                <option value="28">28</option>
+                <option value="29">29</option>
+                <option value="30">30</option>
+                <option value="31">31</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-textsecondary mb-1 block text-[10px] font-bold">Mês</label>
+              <select id="filter-mes" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-2 py-1.5 text-xs text-white focus:outline-none">
+                <option value="">Todos</option>
+                <option value="01">Janeiro</option>
+                <option value="02">Fevereiro</option>
+                <option value="03">Março</option>
+                <option value="04">Abril</option>
+                <option value="05">Maio</option>
+                <option value="06">Junho</option>
+                <option value="07">Julho</option>
+                <option value="08">Agosto</option>
+                <option value="09">Setembro</option>
+                <option value="10">Outubro</option>
+                <option value="11">Novembro</option>
+                <option value="12">Dezembro</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-textsecondary mb-1 block text-[10px] font-bold">Ano</label>
+              <select id="filter-ano" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-2 py-1.5 text-xs text-white focus:outline-none">
+                <option value="">Todos</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+                <option value="2027">2027</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-cardborder/60 flex gap-2 border-t pt-2">
+          <button id="btn-apply-filter" class="bg-brand-500 hover:bg-brand-600 text-darkbg flex-grow rounded-xl px-3 py-2 text-xs font-bold transition">Aplicar Filtros</button>
+          <button id="btn-reset-filter" class="bg-darkbg hover:bg-cardborder text-textsecondary border-cardborder/60 rounded-xl border px-3 py-2 text-xs font-semibold">Limpar</button>
+        </div>
+      </div>
     </div>
 
     <!-- BOTTOM SHEET: DETALHES, EDITAR DESCRIÇÃO & ARQUIVOS -->
-    <div id="bottom-sheet-backdrop" class="fixed inset-0 bg-black/70 z-50 bottom-sheet-backdrop opacity-0 pointer-events-none transition-opacity duration-300"></div>
-    <div id="bottom-sheet-panel" class="fixed bottom-0 left-0 right-0 z-50 bg-cardbg border-t border-cardborder rounded-t-3xl max-w-2xl mx-auto p-4 sm:p-6 shadow-2xl bottom-sheet-panel bottom-sheet-hidden">
-        <div class="w-12 h-1.5 bg-cardborder rounded-full mx-auto mb-4"></div>
-        <div class="flex items-start justify-between border-b border-cardborder/60 pb-3 mb-4">
-            <div class="flex items-center gap-3">
-                <div id="bs-icon-badge" class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-base shrink-0"></div>
-                <div>
-                    <h3 class="text-sm sm:text-base font-extrabold text-white" id="bs-category">Categoria</h3>
-                    <p class="text-[11px] text-textsecondary font-mono" id="bs-subtitle">Data • Valor</p>
-                </div>
-            </div>
-            <button id="btn-close-bs" class="text-textsecondary hover:text-white p-1">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
+    <div id="bottom-sheet-backdrop" class="bottom-sheet-backdrop pointer-events-none fixed inset-0 z-50 bg-black/70 opacity-0 transition-opacity duration-300"></div>
+    <div id="bottom-sheet-panel" class="bg-cardbg border-cardborder bottom-sheet-panel bottom-sheet-hidden fixed right-0 bottom-0 left-0 z-50 mx-auto max-w-2xl rounded-t-3xl border-t p-4 shadow-2xl sm:p-6">
+      <div class="bg-cardborder mx-auto mb-4 h-1.5 w-12 rounded-full"></div>
+      <div class="border-cardborder/60 mb-4 flex items-start justify-between border-b pb-3">
+        <div class="flex items-center gap-3">
+          <div id="bs-icon-badge" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base font-bold"></div>
+          <div>
+            <h3 class="text-sm font-extrabold text-white sm:text-base" id="bs-category">Categoria</h3>
+            <p class="text-textsecondary font-mono text-[11px]" id="bs-subtitle">Data • Valor</p>
+          </div>
+        </div>
+        <button id="btn-close-bs" class="text-textsecondary p-1 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Corretor Beneficiário (se houver) -->
+        <div id="bs-corretor-box" class="bg-darkbg border-brand-500/30 hidden space-y-1 rounded-xl border p-3">
+          <span class="text-brand-500 block text-[10px] font-bold uppercase"><i class="fa-solid fa-user-tie"></i> Corretor Beneficiário</span>
+          <div class="text-xs font-bold text-white" id="bs-corretor-nome">--</div>
+          <div class="text-textsecondary font-mono text-[10px]" id="bs-corretor-detalhes">--</div>
         </div>
 
-        <div class="space-y-4">
-            <!-- Corretor Beneficiário (se houver) -->
-            <div id="bs-corretor-box" class="hidden p-3 bg-darkbg border border-brand-500/30 rounded-xl space-y-1">
-                <span class="text-[10px] text-brand-500 font-bold uppercase block"><i class="fa-solid fa-user-tie"></i> Corretor Beneficiário</span>
-                <div class="text-xs font-bold text-white" id="bs-corretor-nome">--</div>
-                <div class="text-[10px] text-textsecondary font-mono" id="bs-corretor-detalhes">--</div>
-            </div>
-
-            <!-- Descrição -->
-            <div>
-                <label class="block text-[11px] font-bold text-textsecondary mb-1">Descrição do Lançamento</label>
-                <input type="text" id="bs-in-descricao" placeholder="Ex: Referente a repasse proposta PV-395473" class="w-full bg-darkbg border border-cardborder/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
-            </div>
-
-            <!-- Arquivos Vinculados -->
-            <div class="space-y-2">
-                <label class="text-xs font-bold text-textprimary flex items-center justify-between">
-                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-folder-open text-brand-500"></i> Arquivos Vinculados</span>
-                </label>
-                <div id="bs-container-fileupload">
-                    <input type="file" id="bs-in-file" accept="image/*,application/pdf" class="w-full text-xs text-textsecondary file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-500/20 file:text-brand-500">
-                </div>
-                <div id="bs-files-list" class="space-y-2 max-h-36 overflow-y-auto custom-scrollbar pt-1"></div>
-            </div>
-
-            <!-- Ações -->
-            <div class="pt-2 grid grid-cols-2 gap-2 border-t border-cardborder/60">
-                <button id="bs-btn-edit" class="py-2.5 rounded-xl text-xs font-bold bg-brand-500 text-darkbg hover:bg-brand-600 transition">Salvar Alterações</button>
-                <button id="bs-btn-delete" class="py-2.5 rounded-xl text-xs font-bold bg-negative/10 text-negative border border-negative/30 hover:bg-negative/20 transition">Excluir Lançamento</button>
-            </div>
+        <!-- Descrição -->
+        <div>
+          <label class="text-textsecondary mb-1 block text-[11px] font-bold">Descrição do Lançamento</label>
+          <input type="text" id="bs-in-descricao" placeholder="Ex: Referente a repasse proposta PV-395473" class="bg-darkbg border-cardborder/60 focus:border-brand-500 w-full rounded-xl border px-3 py-2 text-xs text-white focus:outline-none" />
         </div>
+
+        <!-- Arquivos Vinculados -->
+        <div class="space-y-2">
+          <label class="text-textprimary flex items-center justify-between text-xs font-bold">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-folder-open text-brand-500"></i> Arquivos Vinculados</span>
+          </label>
+          <div id="bs-container-fileupload">
+            <input type="file" id="bs-in-file" accept="image/*,application/pdf" class="text-textsecondary file:bg-brand-500/20 file:text-brand-500 w-full text-xs file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-1.5 file:text-xs file:font-semibold" />
+          </div>
+          <div id="bs-files-list" class="custom-scrollbar max-h-36 space-y-2 overflow-y-auto pt-1"></div>
+        </div>
+
+        <!-- Ações -->
+        <div class="border-cardborder/60 grid grid-cols-2 gap-2 border-t pt-2">
+          <button id="bs-btn-edit" class="bg-brand-500 text-darkbg hover:bg-brand-600 rounded-xl py-2.5 text-xs font-bold transition">Salvar Alterações</button>
+          <button id="bs-btn-delete" class="bg-negative/10 text-negative border-negative/30 hover:bg-negative/20 rounded-xl border py-2.5 text-xs font-bold transition">Excluir Lançamento</button>
+        </div>
+      </div>
     </div>
 
     <!-- CARREGAMENTO DO MÓDULO PRINCIPAL NA RAIZ -->
     <script type="module" src="./app.js"></script>
-</body>
+  </body>
 </html>
