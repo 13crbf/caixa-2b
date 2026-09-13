@@ -123,7 +123,7 @@
 
                 <!-- BARRA DE BUSCA E BOTÃO POPUP DE FILTROS -->
                 <div class="flex items-center justify-between pt-1">
-                    <span class="text-xs font-bold text-textsecondary"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Padrão: Últimos 3 Meses</span>
+                    <span class="text-xs font-bold text-textsecondary"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Exibindo os mais recentes primeiro</span>
                     <button id="btn-open-filter" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cardbg text-brand-500 border border-cardborder/60 hover:border-brand-500 transition flex items-center gap-1.5">
                         <i class="fa-solid fa-sliders"></i> Filtros & Busca
                     </button>
@@ -174,6 +174,11 @@
                 <div id="container-select-corretor" class="hidden">
                     <label class="block text-[11px] font-bold text-brand-500 mb-1">Vincular Corretor Beneficiário</label>
                     <select id="in-corretor-id" class="w-full bg-darkbg border border-brand-500/50 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500 font-medium"></select>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-textsecondary mb-1">Comprovante (Imagem ou PDF) — opcional</label>
+                    <input type="file" id="in-comprovante" accept="image/*,application/pdf" class="w-full text-xs text-textsecondary file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-500/20 file:text-brand-500">
                 </div>
 
                 <div class="flex gap-2 pt-2">
