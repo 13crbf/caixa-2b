@@ -160,7 +160,11 @@ function openBottomSheet(t, isReadOnly, onRefreshNeeded) {
         // Botão Salvar Geral / Editar
         editBtn.onclick = async () => {
             const novaDesc = descInput.value;
-            await saveTransactionDB({ id: t.id, descricao: novaDesc });
+            const { error } = await saveTransactionDB({ id: t.id, descricao: novaDesc });
+            if (error) {
+                alert("Erro ao salvar alterações: " + error.message);
+                return;
+            }
             closeBottomSheet();
             onRefreshNeeded();
         };
@@ -172,19 +176,24 @@ function openBottomSheet(t, isReadOnly, onRefreshNeeded) {
             try {
                 const newFile = await uploadFileDB(e.target.files[0]);
                 const updatedFiles = [...(t.comprovantes || []), newFile];
-                await saveTransactionDB({ id: t.id, comprovantes: updatedFiles, descricao: descInput.value });
+                const { error } = await saveTransactionDB({ id: t.id, comprovantes: updatedFiles, descricao: descInput.value });
+                if (error) throw error;
                 t.comprovantes = updatedFiles;
                 renderBSFiles(t, isReadOnly, onRefreshNeeded);
                 onRefreshNeeded();
                 fileInput.value = '';
             } catch (err) {
-                alert("Erro ao enviar anexo: " + err.message);
+                alert("Erro ao enviar anexo: " + (err.message || JSON.stringify(err)));
             }
         };
 
         deleteBtn.onclick = async () => {
             if (confirm("Deseja realmente excluir esta movimentação?")) {
-                await deleteTransactionDB(t.id);
+                const { error } = await deleteTransactionDB(t.id);
+                if (error) {
+                    alert("Erro ao excluir movimentação: " + error.message);
+                    return;
+                }
                 closeBottomSheet();
                 onRefreshNeeded();
             }
@@ -233,7 +242,11 @@ function renderBSFiles(t, isReadOnly, onRefreshNeeded) {
         const label = targetFile ? `"${targetFile.name}"` : "este arquivo";
         if (confirm(`Excluir o arquivo ${label} desta movimentação?`)) {
             const updatedFiles = files.filter((_, index) => index !== fileIndex);
-            await saveTransactionDB({ id: txId, comprovantes: updatedFiles });
+            const { error } = await saveTransactionDB({ id: txId, comprovantes: updatedFiles });
+            if (error) {
+                alert("Erro ao excluir arquivo: " + error.message);
+                return;
+            }
             t.comprovantes = updatedFiles;
             renderBSFiles(t, isReadOnly, onRefreshNeeded);
             onRefreshNeeded();
