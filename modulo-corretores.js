@@ -1,68 +1,149 @@
-import { fetchCorretores, saveCorretorDB } from './db.js';
+import { fetchCorretores, saveCorretorDB, supabase } from './db.js';
 
-export async function initCorretoresModule() {
-    document.getElementById('btn-save-corretor').addEventListener('click', async () => {
-        const nome = document.getElementById('cor-nome').value;
-        const telefone = document.getElementById('cor-telefone').value;
-        const creci = document.getElementById('cor-creci').value;
-        const cpf = document.getElementById('cor-cpf').value;
-        const chave_pix = document.getElementById('cor-pix').value;
+let corretoresState = [];
+let editingCorretorId = null;
 
-        if (!nome || !cpf) {
-            alert("Nome e CPF são obrigatórios para o cadastro.");
-            return;
-        }
+export async function initCorretoresModule(isReadOnly = false) {
+    // Alternância de Sub-Abas do Módulo Corretores
+    const btnTabLista = document.getElementById('cor-tab-lista');
+    const btnTabNovo = document.getElementById('cor-tab-novo');
+    const viewLista = document.getElementById('cor-view-lista');
+    const viewNovo = document.getElementById('cor-view-novo');
 
-        const { error } = await saveCorretorDB({ nome, telefone, creci, cpf, chave_pix });
-        if (error) {
-            alert("Erro ao salvar corretor: " + error.message);
-        } else {
-            alert("Corretor cadastrado com sucesso!");
-            document.getElementById('cor-nome').value = '';
-            document.getElementById('cor-telefone').value = '';
-            document.getElementById('cor-creci').value = '';
-            document.getElementById('cor-cpf').value = '';
-            document.getElementById('cor-pix').value = '';
-            loadCorretoresUI();
-        }
-    });
+    if (btnTabLista && btnTabNovo) {
+        btnTabLista.addEventListener('click', () => {
+            viewLista.classList.remove('hidden');
+            viewNovo.classList.add('hidden');
+            btnTabLista.className = "px-3 py-1.5 rounded-lg text-xs font-bold pill-active";
+            btnTabNovo.className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-textsecondary hover:text-white";
+        });
 
-    await loadCorretoresUI();
+        btnTabNovo.addEventListener('click', () => {
+            viewNovo.classList.remove('hidden');
+            viewLista.classList.add('hidden');
+            btnTabNovo.className = "px-3 py-1.5 rounded-lg text-xs font-bold pill-active";
+            btnTabLista.className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-textsecondary hover:text-white";
+        });
+    }
+
+    // Salvar/Editar Corretor
+    const btnSave = document.getElementById('btn-save-corretor');
+    if (btnSave) {
+        btnSave.addEventListener('click', async () => {
+            const nome = document.getElementById('cor-nome').value.trim();
+            const telefone = document.getElementById('cor-telefone').value.trim();
+            const creci = document.getElementById('cor-creci').value.trim();
+            const cpf = document.getElementById('cor-cpf').value.trim();
+            const chave_pix = document.getElementById('cor-pix').value.trim();
+
+            if (!nome || !telefone || !creci || !cpf || !chave_pix) {
+                alert("Por favor, preencha todos os campos do corretor (Nome, Telefone, CRECI, CPF e Chave Pix).");
+                return;
+            }
+
+            const payload = { nome, telefone, creci, cpf, chave_pix };
+            if (editingCorretorId) payload.id = editingCorretorId;
+
+            const { error } = await saveCorretorDB(payload);
+            if (error) {
+                alert("Erro ao salvar corretor: " + error.message);
+            } else {
+                alert(editingCorretorId ? "Corretor atualizado com sucesso!" : "Corretor cadastrado com sucesso!");
+                resetCorretorForm();
+                await loadCorretoresUI(isReadOnly);
+                // Retorna para a lista
+                btnTabLista.click();
+            }
+        });
+    }
+
+    await loadCorretoresUI(isReadOnly);
 }
 
-export async function loadCorretoresUI() {
-    const corretores = await fetchCorretores();
+export async function loadCorretoresUI(isReadOnly = false) {
+    corretoresState = await fetchCorretores();
     const container = document.getElementById('corretores-list-container');
     const selectLancar = document.getElementById('in-corretor-id');
 
-    container.innerHTML = '';
-    selectLancar.innerHTML = '<option value="">Selecione um Corretor...</option>';
+    if (container) container.innerHTML = '';
+    if (selectLancar) selectLancar.innerHTML = '<option value="">Selecione um Corretor...</option>';
 
-    if (corretores.length === 0) {
-        container.innerHTML = `<div class="p-4 text-center text-xs text-textsecondary">Nenhum corretor cadastrado.</div>`;
+    if (!corretoresState || corretoresState.length === 0) {
+        if (container) container.innerHTML = `<div class="p-6 text-center text-xs text-textsecondary">Nenhum corretor parceiro cadastrado.</div>`;
         return;
     }
 
-    corretores.forEach(c => {
-        // Popula Tabela
-        const row = document.createElement('div');
-        row.className = "p-3 sm:p-4 flex items-center justify-between hover:bg-darkbg/50 transition text-xs";
-        row.innerHTML = `
-            <div>
-                <div class="font-bold text-white">${c.nome}</div>
-                <div class="text-[10px] text-textsecondary">CRECI: ${c.creci} • Tel: ${c.telefone}</div>
-            </div>
-            <div class="text-right">
-                <div class="font-mono text-amber-400 font-bold text-[11px]">${c.chave_pix}</div>
-                <div class="text-[10px] text-textsecondary">CPF: ${c.cpf}</div>
-            </div>
-        `;
-        container.appendChild(row);
+    corretoresState.forEach(c => {
+        // Tabela / Lista
+        if (container) {
+            const row = document.createElement('div');
+            row.className = "p-3.5 flex items-center justify-between hover:bg-darkbg/40 transition text-xs border-b border-cardborder/40 last:border-0";
+            
+            const actionsHtml = (!isReadOnly) ? `
+                <div class="flex items-center gap-2">
+                    <button class="p-1.5 text-textsecondary hover:text-brand-500 transition" onclick="window.editCorretor('${c.id}')" title="Editar Corretor"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="p-1.5 text-negative hover:text-red-400 transition" onclick="window.deleteCorretor('${c.id}')" title="Excluir Corretor"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            ` : '';
 
-        // Popula Dropdown do Formulário de Lançamento
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.innerText = `${c.nome} (${c.creci})`;
-        selectLancar.appendChild(opt);
+            row.innerHTML = `
+                <div>
+                    <div class="font-bold text-white">${c.nome}</div>
+                    <div class="text-[10px] text-textsecondary">CRECI: ${c.creci} | Tel: ${c.telefone} | CPF: ${c.cpf}</div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right">
+                        <div class="font-mono text-amber-400 font-bold text-[11px]">${c.chave_pix}</div>
+                    </div>
+                    ${actionsHtml}
+                </div>
+            `;
+            container.appendChild(row);
+        }
+
+        // Dropdown no formulário de Lançamentos
+        if (selectLancar) {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.innerText = `${c.nome} (${c.creci})`;
+            selectLancar.appendChild(opt);
+        }
     });
+
+    // Funções Globais de Edição/Exclusão
+    window.editCorretor = (id) => {
+        const c = corretoresState.find(x => x.id === id);
+        if (!c) return;
+
+        editingCorretorId = c.id;
+        document.getElementById('cor-nome').value = c.nome;
+        document.getElementById('cor-telefone').value = c.telefone;
+        document.getElementById('cor-creci').value = c.creci;
+        document.getElementById('cor-cpf').value = c.cpf;
+        document.getElementById('cor-pix').value = c.chave_pix;
+
+        document.getElementById('cor-form-title').innerText = "Editar Cadastro de Corretor";
+        document.getElementById('btn-save-corretor').innerText = "Atualizar Corretor";
+
+        document.getElementById('cor-tab-novo').click();
+    };
+
+    window.deleteCorretor = async (id) => {
+        if (confirm("Deseja realmente excluir este corretor do cadastro?")) {
+            const { error } = await supabase.from('corretores').delete().eq('id', id);
+            if (error) alert("Erro ao excluir corretor: " + error.message);
+            else await loadCorretoresUI(isReadOnly);
+        }
+    };
+}
+
+function resetCorretorForm() {
+    editingCorretorId = null;
+    document.getElementById('cor-nome').value = '';
+    document.getElementById('cor-telefone').value = '';
+    document.getElementById('cor-creci').value = '';
+    document.getElementById('cor-cpf').value = '';
+    document.getElementById('cor-pix').value = '';
+    document.getElementById('cor-form-title').innerText = "Cadastrar Novo Corretor";
+    document.getElementById('btn-save-corretor').innerText = "Salvar Corretor";
 }
