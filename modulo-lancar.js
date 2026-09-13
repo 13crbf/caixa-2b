@@ -52,11 +52,11 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 return;
             }
 
-            // Trava de Saldo Negativo para retiradas
+            // Trava de Saldo Negativo
             if (tipo === 'saida') {
                 const saldoDisponivel = getSaldoAtualFn();
                 if (valor > saldoDisponivel && !id) {
-                    alert("Saldo Insuficiente: A retirada não pode deixar o saldo líquido negativo.");
+                    alert("Operação Bloqueada: Saldo Insuficiente para realizar esta retirada!");
                     return;
                 }
             }
@@ -66,7 +66,6 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 return;
             }
 
-            // Garante o envio do campo descricao (evita NOT NULL constraint do Supabase)
             const payload = { 
                 tipo, 
                 data, 
