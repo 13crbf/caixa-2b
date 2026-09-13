@@ -43,7 +43,7 @@ export async function fetchTotaisGerais() {
     const { data, error } = await supabase.rpc('fn_totais_fluxo').single();
     if (error) {
         console.error("Erro Supabase (totais gerais):", error);
-        return { total_entradas: 0, total_saidas: 0 };
+        throw error;
     }
     return data;
 }
