@@ -1,4 +1,4 @@
-import { saveTransactionDB, uploadFileDB, deleteTransactionDB } from './db.js';
+import { saveTransactionDB, uploadFileDB, deleteTransactionDB, fetchSaldoAteData } from './db.js';
 
 const CATEGORY_ICONS = {
     'Comissão Construtora (Cury)': 'fa-building',
@@ -13,58 +13,38 @@ const CATEGORY_ICONS = {
     'Outras Categorias': 'fa-coins'
 };
 
-export function renderExtratoModule(transactions, isBalanceHidden, isReadOnly, onRefreshNeeded, activeFilter = null) {
+export async function renderExtratoModule(transactions, isBalanceHidden, isReadOnly, onRefreshNeeded, options = {}) {
+    const { hasMore = false, onLoadMore = null, isLoadingMore = false } = options;
     const container = document.getElementById('transactions-grouped-container');
     if (!container) return;
     container.innerHTML = '';
 
     const formatBRL = (v) => isBalanceHidden ? '••••••••' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
-    // Regra: Filtro Padrão de 3 Meses se nenhum filtro manual estiver ativo
-    let filtered = [...transactions];
-    const now = new Date();
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(now.getMonth() - 3);
-    const threeMonthsStr = threeMonthsAgo.toISOString().split('T')[0];
-
-    if (!activeFilter || (!activeFilter.dia && !activeFilter.mes && !activeFilter.ano && !activeFilter.search)) {
-        filtered = filtered.filter(t => t.data >= threeMonthsStr);
-    } else {
-        if (activeFilter.dia) filtered = filtered.filter(t => t.data.split('-')[2] === activeFilter.dia);
-        if (activeFilter.mes) filtered = filtered.filter(t => t.data.split('-')[1] === activeFilter.mes);
-        if (activeFilter.ano) filtered = filtered.filter(t => t.data.split('-')[0] === activeFilter.ano);
-        if (activeFilter.search) {
-            const s = activeFilter.search.toLowerCase();
-            filtered = filtered.filter(t => 
-                t.categoria.toLowerCase().includes(s) || 
-                (t.descricao && t.descricao.toLowerCase().includes(s))
-            );
-        }
-    }
-
-    if (filtered.length === 0) {
-        container.innerHTML = `<div class="p-8 text-center text-textsecondary text-xs font-semibold">Nenhuma movimentação encontrada para o período selecionado.</div>`;
+    // O filtro (dia/mês/ano/busca) já foi aplicado no banco por quem buscou `transactions`.
+    if (transactions.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-textsecondary text-xs font-semibold">Nenhuma movimentação encontrada.</div>`;
         return;
     }
 
     // Agrupamento por Data
     const groups = {};
-    filtered.forEach(t => {
+    transactions.forEach(t => {
         if (!groups[t.data]) groups[t.data] = [];
         groups[t.data].push(t);
     });
 
     const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
 
+    // Saldo acumulado de todo o histórico até cada dia exibido, calculado no banco
+    // (não depende de ter todos os lançamentos carregados no navegador).
+    const saldosPorDia = {};
+    await Promise.all(sortedDates.map(async (dateStr) => {
+        saldosPorDia[dateStr] = await fetchSaldoAteData(dateStr);
+    }));
+
     sortedDates.forEach(dateStr => {
-        // Cálculo do Saldo Momentâneo acumulado até este dia exato
-        let saldoMomentaneo = 0;
-        transactions.forEach(t => {
-            if (t.data <= dateStr) {
-                if (t.tipo === 'entrada') saldoMomentaneo += Number(t.valor);
-                else saldoMomentaneo -= Number(t.valor);
-            }
-        });
+        const saldoMomentaneo = Number(saldosPorDia[dateStr]) || 0;
 
         // Ordenação Interna do Dia: Entradas (+) SEMPRE aparecem ANTES de Saídas (-)
         const dayTransactions = groups[dateStr].sort((a, b) => {
@@ -81,9 +61,9 @@ export function renderExtratoModule(transactions, isBalanceHidden, isReadOnly, o
         });
 
         groupSection.innerHTML = `
-            <div class="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-textsecondary border-b border-cardborder/40">
-                <span class="capitalize"><i class="fa-regular fa-calendar-days text-brand-500 mr-1.5"></i> ${formattedDate}</span>
-                <span class="text-xs font-black ${saldoMomentaneo >= 0 ? 'text-positive' : 'text-negative'}">
+            <div class="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-textprimary border-b border-cardborder/40">
+                <span class="capitalize"><i class="fa-regular fa-calendar-days text-textprimary mr-1.5"></i> ${formattedDate}</span>
+                <span class="text-xs font-black text-textprimary">
                     Saldo: ${formatBRL(saldoMomentaneo)}
                 </span>
             </div>
@@ -118,6 +98,19 @@ export function renderExtratoModule(transactions, isBalanceHidden, isReadOnly, o
             groupBody.appendChild(row);
         });
     });
+
+    // Botão "Carregar mais antigos" (paginação/lazy-load)
+    if (hasMore && onLoadMore) {
+        const loadMoreWrap = document.createElement('div');
+        loadMoreWrap.className = "pt-3 flex justify-center";
+        loadMoreWrap.innerHTML = `
+            <button id="btn-load-more" ${isLoadingMore ? 'disabled' : ''} class="px-4 py-2 rounded-xl text-xs font-bold bg-cardbg border border-cardborder/60 text-textprimary hover:border-brand-500 transition flex items-center gap-2 disabled:opacity-60">
+                ${isLoadingMore ? '<i class="fa-solid fa-spinner fa-spin"></i> Carregando...' : '<i class="fa-solid fa-rotate"></i> Carregar mais antigos'}
+            </button>
+        `;
+        container.appendChild(loadMoreWrap);
+        document.getElementById('btn-load-more')?.addEventListener('click', onLoadMore);
+    }
 }
 
 function openBottomSheet(t, isReadOnly, onRefreshNeeded) {
@@ -236,7 +229,9 @@ function renderBSFiles(t, isReadOnly, onRefreshNeeded) {
 
     // Função de remoção individual de anexo
     window.removeAttachment = async (txId, fileIndex) => {
-        if (confirm("Excluir este arquivo da transação?")) {
+        const targetFile = files[fileIndex];
+        const label = targetFile ? `"${targetFile.name}"` : "este arquivo";
+        if (confirm(`Excluir o arquivo ${label} desta movimentação?`)) {
             const updatedFiles = files.filter((_, index) => index !== fileIndex);
             await saveTransactionDB({ id: txId, comprovantes: updatedFiles });
             t.comprovantes = updatedFiles;
