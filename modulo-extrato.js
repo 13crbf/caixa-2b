@@ -132,6 +132,33 @@ function openBottomSheet(t, isReadOnly, onRefreshNeeded) {
         corretorBox.classList.add('hidden');
     }
 
+    // Dados da venda vinculada (Comissão Cury), se houver
+    const vendaBox = document.getElementById('bs-venda-box');
+    const v = t.vendas;
+    if (v) {
+        vendaBox.classList.remove('hidden');
+        document.getElementById('bs-venda-empreendimento').innerText = `${v.empreendimento} (${v.unidade_torre})`;
+        document.getElementById('bs-venda-detalhes').innerText = `PV: ${v.codigo_pv} | NF: ${v.numero_nfe} | VGV: ${formatBRL(v.vgv_total)}`;
+
+        const linkNfe = document.getElementById('bs-venda-link-nfe');
+        if (v.url_pdf_nfe) {
+            linkNfe.href = v.url_pdf_nfe;
+            linkNfe.classList.remove('hidden');
+        } else {
+            linkNfe.classList.add('hidden');
+        }
+
+        const linkPix = document.getElementById('bs-venda-link-pix');
+        if (v.url_pix_cury) {
+            linkPix.href = v.url_pix_cury;
+            linkPix.classList.remove('hidden');
+        } else {
+            linkPix.classList.add('hidden');
+        }
+    } else {
+        vendaBox.classList.add('hidden');
+    }
+
     const descInput = document.getElementById('bs-in-descricao');
     descInput.value = t.descricao || '';
 
