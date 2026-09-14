@@ -138,7 +138,7 @@ function openBottomSheet(t, isReadOnly, onRefreshNeeded) {
     if (v) {
         vendaBox.classList.remove('hidden');
         document.getElementById('bs-venda-empreendimento').innerText = `${v.empreendimento} (${v.unidade_torre})`;
-        document.getElementById('bs-venda-detalhes').innerText = `PV: ${v.codigo_pv} | NF: ${v.numero_nfe} | VGV: ${formatBRL(v.vgv_total)}`;
+        document.getElementById('bs-venda-detalhes').innerText = `PV: ${v.codigo_pv} | NF: ${v.numero_nfe} | VGV: ${formatBRL(v.vgv_total)} | Status: ${v.status_chamado || '-'}`;
 
         const linkNfe = document.getElementById('bs-venda-link-nfe');
         if (v.url_pdf_nfe) {
@@ -154,6 +154,22 @@ function openBottomSheet(t, isReadOnly, onRefreshNeeded) {
             linkPix.classList.remove('hidden');
         } else {
             linkPix.classList.add('hidden');
+        }
+
+        const linkContratoGovbr = document.getElementById('bs-venda-link-contrato-govbr');
+        if (v.url_contrato_govbr) {
+            linkContratoGovbr.href = v.url_contrato_govbr;
+            linkContratoGovbr.classList.remove('hidden');
+        } else {
+            linkContratoGovbr.classList.add('hidden');
+        }
+
+        const linkPixCorretor = document.getElementById('bs-venda-link-pix-corretor');
+        if (v.url_pix_corretor) {
+            linkPixCorretor.href = v.url_pix_corretor;
+            linkPixCorretor.classList.remove('hidden');
+        } else {
+            linkPixCorretor.classList.add('hidden');
         }
     } else {
         vendaBox.classList.add('hidden');
