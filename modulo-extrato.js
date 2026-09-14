@@ -8,12 +8,12 @@ const CATEGORY_ICONS = {
     'PAGA NOIS': 'fa-money-bill-wave',
     'Imposto DAS (Simples)': 'fa-landmark',
     'Impostos': 'fa-landmark',
-    'Aluguel Virtual': 'fa-house',
+    
     'Contabilidade Digital': 'fa-calculator',
     'Custos Operacionais': 'fa-gears',
-    'CRECI Anuidade': 'fa-id-card',
+    
     'Marketing': 'fa-bullhorn',
-    'Marketing / Redes': 'fa-bullhorn',
+    
     'Leads': 'fa-magnifying-glass-dollar',
     'Outras Categorias': 'fa-coins'
 };
