@@ -1,4 +1,4 @@
-import { saveTransactionDB, saveVendaDB, uploadFileDB } from './db.js';
+import { saveTransactionDB, saveVendaDB, uploadFileDB, fetchVendasPendentesRepasse, updateVendaDB } from './db.js';
 import { tentarExtrairDadosDaNota } from './modulo-nfe-reader.js';
 
 export const CATEGORIAS = {
@@ -10,20 +10,38 @@ export const CATEGORIAS = {
     ],
     saida: [
         'Repasse Corretor',
+        'PAGA NOIS',
         'Imposto DAS (Simples)',
-        'Aluguel Virtual',
+        'Impostos',
         'Contabilidade Digital',
-        'CRECI Anuidade',
-        'Marketing / Redes',
-        'Outras Categorias'
+        'Custos Operacionais',
+        'Marketing',
+        'Leads'
     ]
 };
 
 const CATEGORIA_VENDA_CURY = 'Comissão Construtora (Cury)';
+const CATEGORIA_REPASSE = 'Repasse Corretor';
+const STATUS_REPASSE_CONCLUIDO = 'repasse_concluido';
+
+// Cache da última busca de vendas pendentes de repasse, e a venda selecionada
+// no momento (usada tanto pra exibir o resumo quanto na hora de salvar).
+let vendasPendentesCache = [];
+let vendaRepasseSelecionada = null;
 
 function formatBRL(v) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 }
+
+function toggleValorReadonly(readonly) {
+    const valorInput = document.getElementById('in-valor');
+    if (!valorInput) return;
+    valorInput.readOnly = readonly;
+    valorInput.classList.toggle('opacity-60', readonly);
+    valorInput.classList.toggle('cursor-not-allowed', readonly);
+}
+
+// ---------- Comissão Cury (entrada) ----------
 
 // Recalcula o valor da comissão (VGV × % comissão bruta) e reflete tanto no
 // campo "Valor" do lançamento quanto no texto informativo do bloco da venda.
@@ -44,14 +62,7 @@ function recalcVendaValor() {
 function toggleVendaCuryFields(show) {
     document.getElementById('container-venda-cury')?.classList.toggle('hidden', !show);
     document.getElementById('container-comprovante-generico')?.classList.toggle('hidden', show);
-
-    const valorInput = document.getElementById('in-valor');
-    if (valorInput) {
-        valorInput.readOnly = show;
-        valorInput.classList.toggle('opacity-60', show);
-        valorInput.classList.toggle('cursor-not-allowed', show);
-    }
-
+    if (show) toggleValorReadonly(true);
     if (show) recalcVendaValor();
 }
 
@@ -72,26 +83,118 @@ function resetVendaCuryFields() {
     if (statusEl) statusEl.innerText = '';
 }
 
+// ---------- Repasse ao Corretor (saída), vinculado a uma venda ----------
+
+async function popularVendasPendentesRepasse() {
+    const select = document.getElementById('in-repasse-venda-id');
+    if (!select) return;
+    select.innerHTML = '<option value="">Carregando vendas pendentes...</option>';
+    vendasPendentesCache = await fetchVendasPendentesRepasse();
+
+    if (vendasPendentesCache.length === 0) {
+        select.innerHTML = '<option value="">Nenhuma venda pendente de repasse</option>';
+        return;
+    }
+    select.innerHTML = '<option value="">Selecione a venda...</option>';
+    vendasPendentesCache.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.id;
+        const nomeCorretor = v.corretores?.nome || 'Corretor não identificado';
+        opt.innerText = `${v.empreendimento} - ${v.unidade_torre} (${nomeCorretor})`;
+        select.appendChild(opt);
+    });
+}
+
+function onVendaRepasseSelecionada() {
+    const select = document.getElementById('in-repasse-venda-id');
+    const resumo = document.getElementById('repasse-venda-resumo');
+    const valorInput = document.getElementById('in-valor');
+    const id = select?.value;
+    vendaRepasseSelecionada = vendasPendentesCache.find(v => v.id === id) || null;
+
+    if (!vendaRepasseSelecionada) {
+        if (resumo) resumo.classList.add('hidden');
+        if (valorInput) valorInput.value = '';
+        return;
+    }
+
+    const pct = Number(vendaRepasseSelecionada.pct_repasse_corretor) || 0;
+    const valor = Number(vendaRepasseSelecionada.vgv_total) * (pct / 100);
+    if (valorInput) valorInput.value = valor > 0 ? valor.toFixed(2) : '';
+
+    if (resumo) {
+        resumo.classList.remove('hidden');
+        resumo.innerText = `VGV: ${formatBRL(vendaRepasseSelecionada.vgv_total)} × ${pct}% de repasse = ${formatBRL(valor)}`;
+    }
+}
+
+// Alterna entre "repasse vinculado a uma venda" (padrão) e "repasse avulso"
+// (comportamento antigo: escolhe só o corretor, valor digitado manualmente).
+function toggleRepasseAvulso(avulso) {
+    document.getElementById('container-repasse-venda')?.classList.toggle('hidden', avulso);
+    document.getElementById('container-repasse-avulso')?.classList.toggle('hidden', !avulso);
+    toggleValorReadonly(!avulso);
+
+    if (avulso) {
+        vendaRepasseSelecionada = null;
+        const valorInput = document.getElementById('in-valor');
+        if (valorInput) valorInput.value = '';
+        const resumo = document.getElementById('repasse-venda-resumo');
+        if (resumo) resumo.classList.add('hidden');
+    }
+}
+
+function resetRepasseFields() {
+    const chk = document.getElementById('chk-repasse-avulso');
+    if (chk) chk.checked = false;
+    const selectVenda = document.getElementById('in-repasse-venda-id');
+    if (selectVenda) selectVenda.innerHTML = '';
+    const resumo = document.getElementById('repasse-venda-resumo');
+    if (resumo) { resumo.classList.add('hidden'); resumo.innerText = ''; }
+    ['in-repasse-contrato-govbr', 'in-repasse-pix-corretor', 'in-corretor-id'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    vendaRepasseSelecionada = null;
+    toggleRepasseAvulso(false);
+}
+
+// ---------- Setup geral ----------
+
 export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
     const btnEntrada = document.getElementById('btn-type-entrada');
     const btnSaida = document.getElementById('btn-type-saida');
     const selectCategoria = document.getElementById('in-categoria');
-    const containerCorretor = document.getElementById('container-select-corretor');
+    const containerRepasse = document.getElementById('container-select-corretor');
 
     if (btnEntrada) btnEntrada.addEventListener('click', () => setMovementType('entrada'));
     if (btnSaida) btnSaida.addEventListener('click', () => setMovementType('saida'));
-    
+
     if (selectCategoria) {
-        selectCategoria.addEventListener('change', (e) => {
+        selectCategoria.addEventListener('change', async (e) => {
             const val = e.target.value;
-            if (val === 'Repasse Corretor') {
-                containerCorretor?.classList.remove('hidden');
+            const isRepasse = val === CATEGORIA_REPASSE;
+
+            containerRepasse?.classList.toggle('hidden', !isRepasse);
+            if (isRepasse) {
+                const avulso = document.getElementById('chk-repasse-avulso')?.checked;
+                toggleRepasseAvulso(!!avulso);
+                if (!avulso) await popularVendasPendentesRepasse();
             } else {
-                containerCorretor?.classList.add('hidden');
+                toggleValorReadonly(false);
             }
+
             toggleVendaCuryFields(val === CATEGORIA_VENDA_CURY);
         });
     }
+
+    document.getElementById('chk-repasse-avulso')?.addEventListener('change', async (e) => {
+        const avulso = e.target.checked;
+        toggleRepasseAvulso(avulso);
+        if (!avulso) await popularVendasPendentesRepasse();
+    });
+
+    document.getElementById('in-repasse-venda-id')?.addEventListener('change', onVendaRepasseSelecionada);
 
     // Recalcula o valor da comissão sempre que o VGV ou o % mudarem
     ['in-venda-vgv-total', 'in-venda-pct-comissao'].forEach(id => {
@@ -147,9 +250,17 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
             const data = document.getElementById('in-data').value;
             const categoria = selectCategoria.value;
             const isVendaCury = categoria === CATEGORIA_VENDA_CURY;
+            const isRepasse = categoria === CATEGORIA_REPASSE;
+            const repasseAvulso = isRepasse && !!document.getElementById('chk-repasse-avulso')?.checked;
+            const repasseVinculado = isRepasse && !repasseAvulso;
+
+            if (!categoria) {
+                alert("Selecione uma categoria.");
+                return;
+            }
 
             let valor = parseFloat(document.getElementById('in-valor').value);
-            const corretor_id = categoria === 'Repasse Corretor' ? document.getElementById('in-corretor-id').value : null;
+            let corretor_id = repasseAvulso ? document.getElementById('in-corretor-id').value : null;
 
             // --- Coleta e validação dos dados da venda (somente para Comissão Cury) ---
             let vendaPayload = null;
@@ -193,6 +304,31 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 };
             }
 
+            // --- Coleta e validação do repasse vinculado a uma venda ---
+            let repasseContratoFile = null;
+            let repassePixFile = null;
+            if (repasseVinculado) {
+                if (!vendaRepasseSelecionada) {
+                    alert("Selecione a venda que está sendo repassada.");
+                    return;
+                }
+                repasseContratoFile = document.getElementById('in-repasse-contrato-govbr').files?.[0] || null;
+                repassePixFile = document.getElementById('in-repasse-pix-corretor').files?.[0] || null;
+                if (!id && (!repasseContratoFile || !repassePixFile)) {
+                    alert("Anexe o repasse assinado pelo GOV.br e o comprovante PIX do pagamento.");
+                    return;
+                }
+
+                const pct = Number(vendaRepasseSelecionada.pct_repasse_corretor) || 0;
+                valor = Number(vendaRepasseSelecionada.vgv_total) * (pct / 100);
+                corretor_id = vendaRepasseSelecionada.corretor_id;
+            }
+
+            if (repasseAvulso && !corretor_id) {
+                alert("Por favor, selecione qual Corretor receberá este repasse.");
+                return;
+            }
+
             if (!data || isNaN(valor) || valor <= 0) {
                 alert("Por favor, preencha uma data válida e valor maior que zero.");
                 return;
@@ -207,15 +343,10 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 }
             }
 
-            if (categoria === 'Repasse Corretor' && !corretor_id) {
-                alert("Por favor, selecione qual Corretor receberá este repasse.");
-                return;
-            }
-
             btnSave.disabled = true;
             const originalLabel = btnSave.innerHTML;
 
-            // --- Envio dos anexos (Nota Fiscal + PIX da venda, ou comprovante genérico) ---
+            // --- Envio dos anexos da venda Cury (Nota Fiscal + PIX) ---
             let vendaAnexos = {};
             if (isVendaCury && (nfeFile || pixFile)) {
                 btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando documentos...';
@@ -230,8 +361,24 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 }
             }
 
+            // --- Envio dos anexos do repasse (contrato GOV.br + PIX) ---
+            let repasseAnexos = {};
+            if (repasseVinculado && (repasseContratoFile || repassePixFile)) {
+                btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando documentos do repasse...';
+                try {
+                    if (repasseContratoFile) repasseAnexos.url_contrato_govbr = (await uploadFileDB(repasseContratoFile)).url;
+                    if (repassePixFile) repasseAnexos.url_pix_corretor = (await uploadFileDB(repassePixFile)).url;
+                } catch (err) {
+                    alert("Erro ao enviar documentos do repasse: " + (err.message || JSON.stringify(err)));
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = originalLabel;
+                    return;
+                }
+            }
+
+            // --- Comprovante genérico (qualquer categoria fora do fluxo de venda/repasse) ---
             let comprovantesGenericos;
-            if (!isVendaCury) {
+            if (!isVendaCury && !repasseVinculado) {
                 const fileInput = document.getElementById('in-comprovante');
                 const file = fileInput?.files?.[0];
                 if (file) {
@@ -260,13 +407,28 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 vendaId = novaVenda?.id || null;
             }
 
+            // --- Atualiza a venda repassada com os documentos e o novo status ---
+            if (repasseVinculado) {
+                const { error: updateError } = await updateVendaDB(vendaRepasseSelecionada.id, {
+                    ...repasseAnexos,
+                    status_chamado: STATUS_REPASSE_CONCLUIDO
+                });
+                if (updateError) {
+                    alert("Erro ao atualizar a venda com os dados do repasse: " + updateError.message);
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = originalLabel;
+                    return;
+                }
+                vendaId = vendaRepasseSelecionada.id;
+            }
+
             const payload = {
                 tipo,
                 data,
                 valor,
                 categoria,
                 descricao: categoria,
-                corretor_id: isVendaCury ? (vendaPayload?.corretor_id || null) : corretor_id
+                corretor_id: (isVendaCury ? vendaPayload?.corretor_id : corretor_id) || null
             };
             if (id) payload.id = id;
             if (vendaId) payload.venda_id = vendaId;
@@ -293,32 +455,31 @@ export function setMovementType(tipo) {
     const btnEntrada = document.getElementById('btn-type-entrada');
     const btnSaida = document.getElementById('btn-type-saida');
     const select = document.getElementById('in-categoria');
-    const containerCorretor = document.getElementById('container-select-corretor');
+    const containerRepasse = document.getElementById('container-select-corretor');
 
     if (tipo === 'entrada') {
         if (btnEntrada) btnEntrada.className = "py-2.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1.5 bg-positive/20 text-positive border border-positive/40";
         if (btnSaida) btnSaida.className = "py-2.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1.5 bg-darkbg text-textsecondary border border-cardborder";
-        if (containerCorretor) containerCorretor.classList.add('hidden');
     } else {
         if (btnSaida) btnSaida.className = "py-2.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1.5 bg-negative/20 text-negative border border-negative/40";
         if (btnEntrada) btnEntrada.className = "py-2.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-1.5 bg-darkbg text-textsecondary border border-cardborder";
     }
 
+    // Categoria começa em branco — nenhum bloco extra (venda Cury, repasse) aparece
+    // até o usuário escolher explicitamente uma categoria.
     if (select) {
-        select.innerHTML = '';
+        select.innerHTML = '<option value="" disabled selected>Selecione a categoria...</option>';
         CATEGORIAS[tipo].forEach(c => {
             const opt = document.createElement('option');
-            opt.value = c; 
+            opt.value = c;
             opt.innerText = c;
             select.appendChild(opt);
         });
     }
 
-    if (tipo === 'saida' && select && select.value === 'Repasse Corretor') {
-        if (containerCorretor) containerCorretor.classList.remove('hidden');
-    }
-
-    toggleVendaCuryFields(tipo === 'entrada' && select && select.value === CATEGORIA_VENDA_CURY);
+    containerRepasse?.classList.add('hidden');
+    toggleVendaCuryFields(false);
+    toggleValorReadonly(false);
 }
 
 export function resetForm() {
@@ -332,5 +493,6 @@ export function resetForm() {
     const comprovanteEl = document.getElementById('in-comprovante');
     if (comprovanteEl) comprovanteEl.value = "";
     resetVendaCuryFields();
+    resetRepasseFields();
     setMovementType('entrada');
 }
