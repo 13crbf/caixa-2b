@@ -56,7 +56,7 @@ function toggleVendaCuryFields(show) {
 }
 
 function resetVendaCuryFields() {
-    ['in-venda-corretor-id', 'in-venda-codigo-pv', 'in-venda-empreendimento', 'in-venda-unidade-torre', 'in-venda-vgv-total', 'in-venda-nfe', 'in-venda-pix-cury'].forEach(id => {
+    ['in-venda-corretor-id', 'in-venda-codigo-pv', 'in-venda-numero-nfe', 'in-venda-empreendimento', 'in-venda-unidade-torre', 'in-venda-vgv-total', 'in-venda-nfe', 'in-venda-pix-cury'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -114,6 +114,7 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
             if (dados) {
                 if (dados.empreendimento) document.getElementById('in-venda-empreendimento').value = dados.empreendimento;
                 if (dados.unidadeTorre) document.getElementById('in-venda-unidade-torre').value = dados.unidadeTorre;
+                if (dados.numeroNfe) document.getElementById('in-venda-numero-nfe').value = dados.numeroNfe;
                 if (dados.valorNotaFiscal) {
                     // O valor da nota é a comissão (ex. 3,65% do VGV) — calcula o VGV de trás pra frente
                     const pctAtual = parseFloat(document.getElementById('in-venda-pct-comissao')?.value) || 3.65;
@@ -158,6 +159,7 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
             if (isVendaCury) {
                 const vendaCorretorId = document.getElementById('in-venda-corretor-id').value;
                 const codigoPv = document.getElementById('in-venda-codigo-pv').value.trim();
+                const numeroNfe = document.getElementById('in-venda-numero-nfe').value.trim();
                 const empreendimento = document.getElementById('in-venda-empreendimento').value.trim();
                 const unidadeTorre = document.getElementById('in-venda-unidade-torre').value.trim();
                 const vgvTotal = parseFloat(document.getElementById('in-venda-vgv-total').value);
@@ -167,8 +169,8 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 nfeFile = document.getElementById('in-venda-nfe').files?.[0] || null;
                 pixFile = document.getElementById('in-venda-pix-cury').files?.[0] || null;
 
-                if (!vendaCorretorId || !codigoPv || !empreendimento || !unidadeTorre || isNaN(vgvTotal) || vgvTotal <= 0) {
-                    alert("Preencha todos os dados da venda: corretor, código PV, empreendimento, unidade/torre e VGV.");
+                if (!vendaCorretorId || !codigoPv || !numeroNfe || !empreendimento || !unidadeTorre || isNaN(vgvTotal) || vgvTotal <= 0) {
+                    alert("Preencha todos os dados da venda: corretor, código PV, número da nota, empreendimento, unidade/torre e VGV.");
                     return;
                 }
                 if (!id && (!nfeFile || !pixFile)) {
@@ -181,6 +183,7 @@ export function setupLancarEvents(onSuccessCallback, getSaldoAtualFn) {
                 vendaPayload = {
                     corretor_id: vendaCorretorId,
                     codigo_pv: codigoPv,
+                    numero_nfe: numeroNfe,
                     empreendimento,
                     unidade_torre: unidadeTorre,
                     vgv_total: vgvTotal,
