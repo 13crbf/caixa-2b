@@ -69,7 +69,12 @@ function parseBRLNumber(str) {
 }
 
 function parseNfeText(text) {
-    const result = { empreendimento: '', unidadeTorre: '', valorNotaFiscal: null };
+    const result = { empreendimento: '', unidadeTorre: '', valorNotaFiscal: null, numeroNfe: null };
+
+    // O número da nota, em ambos os padrões, aparece imediatamente antes da
+    // data de emissão (ex. "00000001 20/08/2026" ou "70 07/07/2026").
+    const mNumero = text.match(/\b(\d{1,9})\s+\d{2}\/\d{2}\/\d{4}/);
+    if (mNumero) result.numeroNfe = mNumero[1];
 
     // Padrão 1: NFS-e prefeitura, campos rotulados em linhas separadas
     const mEmpreendimento = text.match(/Empreendimento:\s*([^\n]+)/i);
@@ -97,10 +102,10 @@ function parseNfeText(text) {
 }
 
 /**
- * Tenta ler um PDF de nota fiscal e extrair empreendimento, unidade/torre e o
- * valor da nota (que é a COMISSÃO já recebida — ex. 3,65% do VGV — e não o
- * VGV do imóvel em si). Quem chama esta função é responsável por calcular o
- * VGV de trás pra frente: vgv = valorNotaFiscal / (pctComissao / 100).
+ * Tenta ler um PDF de nota fiscal e extrair empreendimento, unidade/torre, o
+ * número da nota e o valor da nota (que é a COMISSÃO já recebida — ex. 3,65%
+ * do VGV — e não o VGV do imóvel em si). Quem chama esta função é responsável
+ * por calcular o VGV de trás pra frente: vgv = valorNotaFiscal / (pctComissao / 100).
  * Retorna null se o arquivo não for um PDF ou se a leitura falhar (o chamador
  * deve tratar isso como "não deu pra extrair, preencha manualmente").
  */
@@ -108,6 +113,6 @@ export async function tentarExtrairDadosDaNota(file) {
     if (!file || file.type !== 'application/pdf') return null;
     const text = await extractPdfText(file);
     const dados = parseNfeText(text);
-    const encontrouAlgo = dados.empreendimento || dados.unidadeTorre || dados.valorNotaFiscal;
+    const encontrouAlgo = dados.empreendimento || dados.unidadeTorre || dados.valorNotaFiscal || dados.numeroNfe;
     return encontrouAlgo ? dados : null;
 }
