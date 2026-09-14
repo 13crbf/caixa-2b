@@ -15,7 +15,7 @@ export const PAGE_SIZE = 30;
 export async function fetchTransactionsPage({ offset = 0, limit = PAGE_SIZE, filtro = null } = {}) {
     let query = supabase
         .from('transactions')
-        .select('*, corretores(*)')
+        .select('*, corretores(*), vendas(*)')
         .order('data', { ascending: false })
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
