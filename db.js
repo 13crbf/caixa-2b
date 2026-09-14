@@ -79,6 +79,22 @@ export async function saveVendaDB(vendaData) {
     return await supabase.from('vendas').insert([vendaData]).select().single();
 }
 
+// Vendas cuja comissão já entrou, mas cujo repasse ao corretor ainda não foi feito.
+export async function fetchVendasPendentesRepasse() {
+    const { data, error } = await supabase
+        .from('vendas')
+        .select('*, corretores(*)')
+        .eq('status_chamado', 'aguardando_contrato_govbr')
+        .order('created_at', { ascending: false });
+    if (error) console.error("Erro Supabase (vendas pendentes de repasse):", error);
+    return data || [];
+}
+
+// Atualiza campos da venda (ex.: documentos e status do repasse) sem duplicar a linha.
+export async function updateVendaDB(id, patch) {
+    return await supabase.from('vendas').update(patch).eq('id', id);
+}
+
 export async function saveTransactionDB(payload) {
     if (payload.id) {
         return await supabase.from('transactions').update(payload).eq('id', payload.id);
