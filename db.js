@@ -95,6 +95,21 @@ export async function updateVendaDB(id, patch) {
     return await supabase.from('vendas').update(patch).eq('id', id);
 }
 
+// Busca enxuta (sem paginação) para alimentar o módulo de Estatísticas: só os
+// campos necessários para agregações (soma por categoria, por mês, por
+// empreendimento). Para uma imobiliária de porte pequeno/médio isso cabe
+// tranquilamente numa única consulta; se o histórico crescer muito, isso pode
+// precisar virar uma agregação feita no banco (RPC), como já fizemos para os
+// totais gerais do extrato.
+export async function fetchTransacoesParaEstatisticas() {
+    const { data, error } = await supabase
+        .from('transactions')
+        .select('data, valor, tipo, categoria, venda_id, vendas(empreendimento, vgv_total)')
+        .order('data', { ascending: true });
+    if (error) console.error("Erro Supabase (estatísticas):", error);
+    return data || [];
+}
+
 export async function saveTransactionDB(payload) {
     if (payload.id) {
         return await supabase.from('transactions').update(payload).eq('id', payload.id);
