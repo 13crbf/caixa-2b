@@ -2,6 +2,7 @@ import { fetchTransactionsPage, fetchTotaisGerais, PAGE_SIZE } from './db.js';
 import { setupLancarEvents, setMovementType } from './modulo-lancar.js';
 import { renderExtratoModule, closeBottomSheet } from './modulo-extrato.js';
 import { initCorretoresModule } from './modulo-corretores.js';
+import { setupEstatisticasEvents, loadEstatisticas } from './modulo-estatisticas.js';
 
 let transactionsState = [];
 let isBalanceHidden = false;
@@ -81,7 +82,7 @@ function getSaldoAtual() {
 function switchTab(tab) {
     if (isReadOnly && tab !== 'extrato') return;
 
-    ['extrato', 'lancar', 'corretores'].forEach(t => {
+    ['extrato', 'lancar', 'corretores', 'estatisticas'].forEach(t => {
         const viewEl = document.getElementById(`view-${t}`);
         if (viewEl) viewEl.classList.add('hidden');
         
@@ -108,6 +109,7 @@ function switchTab(tab) {
     }
 
     if (tab === 'extrato') loadDataAndRender();
+    if (tab === 'estatisticas') loadEstatisticas();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -119,6 +121,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('mob-tab-lancar')?.classList.add('hidden');
         document.getElementById('desk-tab-corretores')?.classList.add('hidden');
         document.getElementById('mob-tab-corretores')?.classList.add('hidden');
+        document.getElementById('desk-tab-estatisticas')?.classList.add('hidden');
+        document.getElementById('mob-tab-estatisticas')?.classList.add('hidden');
         
         const subtitle = document.getElementById('header-subtitle');
         if (subtitle) subtitle.innerText = "Extrato Corporativo (Somente Leitura)";
@@ -127,12 +131,16 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('mob-tab-lancar')?.classList.remove('hidden');
         document.getElementById('desk-tab-corretores')?.classList.remove('hidden');
         document.getElementById('mob-tab-corretores')?.classList.remove('hidden');
+        document.getElementById('desk-tab-estatisticas')?.classList.remove('hidden');
+        document.getElementById('mob-tab-estatisticas')?.classList.remove('hidden');
     }
 
-    ['extrato', 'lancar', 'corretores'].forEach(t => {
+    ['extrato', 'lancar', 'corretores', 'estatisticas'].forEach(t => {
         document.getElementById(`desk-tab-${t}`)?.addEventListener('click', () => switchTab(t));
         document.getElementById(`mob-tab-${t}`)?.addEventListener('click', () => switchTab(t));
     });
+
+    setupEstatisticasEvents();
 
     // Toggle Eye
     document.getElementById('btn-toggle-eye')?.addEventListener('click', () => {
